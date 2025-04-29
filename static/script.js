@@ -363,11 +363,7 @@ function handlePositionUpdate(position) {
         lon: position.coords.longitude,
         timestamp: position.timestamp
     };
-    
-    // Update accuracy information
     locationAccuracy = position.coords.accuracy;
-    
-    // Check if we've moved significantly
     if (lastKnownPosition) {
         const distance = calculateDistance(
             lastKnownPosition.lat, 
@@ -375,30 +371,24 @@ function handlePositionUpdate(position) {
             newPosition.lat, 
             newPosition.lon
         );
-        
-        // Update movement state if we moved more than threshold
         if (distance > movementThreshold) {
             isMoving = true;
             lastMovementCheck = Date.now();
         } else if (Date.now() - lastMovementCheck > 30000) {
-            // If no significant movement for 30 seconds, consider stationary
             isMoving = false;
         }
-        
-        // If movement state changed, restart tracking with new interval
         if ((isMoving && trackingIsStationary()) || (!isMoving && !trackingIsStationary())) {
             restartLocationTracking();
         }
     }
-    
-    // Update our location state
     lastKnownPosition = newPosition;
     currentPosition = { 
         lat: newPosition.lat, 
         lon: newPosition.lon 
     };
-    
-    // Send to backend if online and it's a significant update
+    if (selectedRoute && stops.length > 0) {
+        renderStopsUI();
+    }
     if (isOnline && shouldSendToBackend(newPosition)) {
         sendLocationToBackend(newPosition.lat, newPosition.lon);
     }

@@ -348,30 +348,8 @@ button:hover, .record-btn:hover {
     #stopsList {
         max-height: 50vh;
     }
-    
-    #current-location {
-        padding: 7px 6px;
-        font-size: 0.82rem;
-        border-radius: 9px;
-        gap: 5px;
-        margin-bottom: 10px;
-        min-height: 32px;
-    }
-    .current-location-icon {
-        font-size: 1em;
-        margin-right: 2px;
-    }
-    #current-location span {
-        text-overflow: ellipsis;
-        overflow: hidden;
-        display: inline-block;
-    }
-    #current-location b {
-        white-space: nowrap;
-        font-weight: 600;
-        color: #0056b3;
-        margin-left: 2px;
-    }
+
+ 
     header {
         padding: 12px 6px 12px 6px;
         min-height: 44px;
@@ -499,7 +477,7 @@ button:hover, .record-btn:hover {
     border: 1.5px solid #b3e0ff;
     border-radius: 12px;
     padding: 18px 20px;
-    font-size: 1.18rem;
+    font-size: 1.5rem;
     font-weight: 500;
     color: #007bff;
     margin-bottom: 18px;
