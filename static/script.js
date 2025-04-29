@@ -36,7 +36,7 @@ async function init() {
     
     // Check for geolocation support
     if (!navigator.geolocation) {
-        showError('Geolocation is not supported by your device');
+        showModal('Geolocation is not supported by your device');
         return;
     }
     
@@ -44,8 +44,11 @@ async function init() {
     try {
         const permission = await navigator.permissions.query({ name: 'geolocation' });
         if (permission.state === 'denied') {
-            showError('Location access is required for this app to function');
+            showModal('Location access is required for this app to function. Please enable location services in your browser or device settings.');
             return;
+        }
+        if (permission.state === 'prompt') {
+            showModal('Please allow location access to use this app.');
         }
         
         // Check battery API if available
@@ -60,6 +63,8 @@ async function init() {
         }
     } catch (error) {
         console.warn('Advanced APIs not supported:', error);
+        showModal('Location access is required for this app to function. Please enable location services in your browser or device settings.');
+        return;
     }
     
     await loadRoutes();
@@ -578,15 +583,27 @@ async function startRecording() {
         stopName = stopToRecord ? stopToRecord.stop_name : '';
         stopId = stopToRecord ? stopToRecord.stop_id : '';
     }
+    if (!navigator.geolocation) {
+        showModal('Location services are not available. Please enable location in your device settings.');
+        return;
+    }
+    try {
+        const permission = await navigator.permissions.query({ name: 'geolocation' });
+        if (permission.state === 'denied') {
+            showModal('Location access is required to record a stop. Please enable location services in your browser or device settings.');
+            return;
+        }
+    } catch (error) {
+        showModal('Location access is required to record a stop. Please enable location services in your browser or device settings.');
+        return;
+    }
     const now = Date.now();
     const lastPositionAge = lastKnownPosition ? (now - lastKnownPosition.timestamp) : Infinity;
-    // If not moving and we have a recent (< 10s) and accurate (< 30m) position, use it immediately
     if (!isMoving && lastKnownPosition && lastPositionAge < 10000 && locationAccuracy < 30) {
         showManualConfirmModal(stopName, lastKnownPosition.lat, lastKnownPosition.lon, () => {
             recordStopWithLocation(stopName, stopId, lastKnownPosition.lat, lastKnownPosition.lon);
         });
     } else if (lastKnownPosition && lastPositionAge < 5000 && locationAccuracy < 20) {
-        // If moving, fallback to previous logic for recent/accurate fix
         showManualConfirmModal(stopName, lastKnownPosition.lat, lastKnownPosition.lon, () => {
             recordStopWithLocation(stopName, stopId, lastKnownPosition.lat, lastKnownPosition.lon);
         });
@@ -609,14 +626,17 @@ async function startRecording() {
                 });
             },
             error => {
-                console.error('Error getting fresh location:', error);
-                showModal('Could not get precise location. Please try again.');
-                setTimeout(hideModal, 2000);
+                if (error.code === error.PERMISSION_DENIED) {
+                    showModal('Location access is required to record a stop. Please enable location services in your browser or device settings.');
+                } else {
+                    showModal('Could not get precise location. Please try again.');
+                    setTimeout(hideModal, 2000);
+                }
             },
             {
                 enableHighAccuracy: true,
                 timeout: 15000,
-                maximumAge: 4000
+                maximumAge: 0
             }
         );
     }
