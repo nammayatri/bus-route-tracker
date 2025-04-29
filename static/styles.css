@@ -1,0 +1,424 @@
+/* General Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    line-height: 1.6;
+    background-color: #f4f4f4;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.container {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 10px;
+}
+
+/* Login Styles */
+.login-container {
+    width: 90%;
+    max-width: 400px;
+    margin: 20vh auto;
+    padding: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* Header Styles */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 18px 20px 18px 20px;
+    background: linear-gradient(90deg, #007bff 0%, #00c6ff 100%);
+    border-radius: 0 0 22px 22px;
+    box-shadow: 0 4px 18px rgba(0,123,255,0.10);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    min-height: 60px;
+    width: 100%;
+    font-size: 1.18rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: #fff;
+}
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+header h1 {
+    font-size: 1.32em;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+    letter-spacing: 0.01em;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+#connection-status {
+    padding: 4px 16px;
+    border-radius: 999px;
+    font-size: 0.98em;
+    font-weight: 600;
+    background: #eafaf1;
+    color: #28a745;
+    border: 1.5px solid #28a745;
+    box-shadow: 0 1px 4px rgba(40,167,69,0.07);
+    transition: background 0.2s, color 0.2s, border 0.2s;
+    margin-right: 4px;
+}
+#connection-status.offline {
+    background: #fff0f0;
+    color: #dc3545;
+    border: 1.5px solid #dc3545;
+}
+
+/* Main Content Styles */
+.main-content {
+    background: linear-gradient(120deg, #fafdff 70%, #e9f5ff 100%);
+    padding: 18px;
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 22px;
+}
+
+.route-selection, .stops-container, .recording-panel {
+    margin-bottom: 20px;
+}
+
+/* Form Elements */
+select, button, input {
+    padding: 12px;
+    margin: 8px 0;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    background-color: white;
+}
+
+button, .record-btn {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s, box-shadow 0.2s;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    touch-action: manipulation;
+    box-shadow: 0 2px 8px rgba(0,123,255,0.07);
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+button:hover, .record-btn:hover {
+    background-color: #0056b3;
+    box-shadow: 0 4px 16px rgba(0,123,255,0.13);
+}
+
+.logout-btn {
+    background-color: #dc3545;
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+.logout-btn:hover {
+    background-color: #c82333;
+}
+
+/* Stops List */
+#stopsList {
+    max-height: 40vh;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 8px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.stop-item {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+}
+
+.stop-item:last-child {
+    border-bottom: none;
+}
+
+/* Recording Panel */
+.recording-panel {
+    background: #f8f9fa;
+    padding: 18px;
+    border-radius: 12px;
+    position: sticky;
+    bottom: 20px;
+    margin-top: 22px;
+    box-shadow: 0 2px 8px rgba(40,167,69,0.07);
+}
+
+.record-btn {
+    background-color: #28a745;
+    font-size: 18px;
+    padding: 15px;
+}
+
+.record-btn:hover {
+    background-color: #218838;
+}
+
+.hidden {
+    display: none;
+}
+
+.error {
+    color: #dc3545;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+/* Confirmation Panel */
+#confirmationPanel {
+    margin-top: 15px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: white;
+}
+
+.confirmation-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.confirmation-buttons button {
+    flex: 1;
+    padding: 12px;
+    font-size: 14px;
+}
+
+#manualStopSelect {
+    width: 100%;
+    margin-top: 15px;
+    padding: 12px;
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 480px) {
+    .container {
+        padding: 5px;
+    }
+    
+    .main-content {
+        padding: 10px;
+    }
+    
+    button, select, input {
+        padding: 14px;
+        font-size: 16px;
+    }
+    
+    .record-btn {
+        padding: 18px;
+        font-size: 20px;
+    }
+    
+    #stopsList {
+        max-height: 50vh;
+    }
+    
+    #current-location {
+        padding: 12px 8px;
+        font-size: 0.82rem;
+        border-radius: 9px;
+        gap: 7px;
+        margin-bottom: 12px;
+        word-break: normal;
+        white-space: nowrap;
+        overflow: hidden;
+        min-width: 0;
+        max-width: 100%;
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+    }
+    .current-location-icon {
+        font-size: 1.1em;
+        margin-right: 3px;
+    }
+    #current-location span {
+        text-overflow: ellipsis;
+        overflow: hidden;
+        display: inline-block;
+    }
+    #current-location b {
+        white-space: nowrap;
+        font-weight: 600;
+        color: #0056b3;
+        margin-left: 2px;
+    }
+    header {
+        padding: 12px 6px 12px 6px;
+        min-height: 44px;
+        border-radius: 0 0 14px 14px;
+        font-size: 1.01rem;
+    }
+    header h1 {
+        font-size: 1.08em;
+    }
+    .header-controls {
+        gap: 10px;
+    }
+    #connection-status {
+        padding: 3px 10px;
+        font-size: 0.93em;
+    }
+}
+@media (max-width: 340px) {
+    #current-location {
+        font-size: 0.7rem;
+    }
+}
+
+/* Top 5 Stops Styles */
+#topStops {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.top-stop-item {
+    background: #e9f5ff;
+    border: 1px solid #b3e0ff;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.top-stop-item.selected, .top-stop-item:hover {
+    background: #b3e0ff;
+}
+
+/* Slider Stops Styles */
+#sliderStops {
+    display: flex;
+    overflow-x: auto;
+    gap: 10px;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+    scrollbar-width: thin;
+}
+.slider-stop-item {
+    min-width: 160px;
+    background: #f7f7f7;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+    flex: 0 0 auto;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.slider-stop-item.selected, .slider-stop-item:hover {
+    background: #d1f0e6;
+    border-color: #7be0c7;
+}
+
+/* Search Input */
+#stopSearchInput {
+    margin-bottom: 10px;
+    width: 100%;
+    font-size: 15px;
+    border: 1px solid #b3e0ff;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+/* Modal Popup Styles */
+.modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+.modal.hidden {
+    display: none;
+}
+.modal-content {
+    background: #fff;
+    padding: 32px 28px;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+    font-size: 20px;
+    font-weight: 500;
+    text-align: center;
+    min-width: 220px;
+    position: relative;
+    border: 3px solid #e0e0e0;
+    transition: border-color 0.3s;
+}
+.modal-content.success {
+    border-color: #28a745;
+    background: #f6fff8;
+    color: #218838;
+}
+.success-checkmark {
+    display: block;
+    margin: 0 auto 12px auto;
+    width: 48px;
+    height: 48px;
+}
+.success-checkmark svg {
+    width: 48px;
+    height: 48px;
+    display: block;
+}
+
+#current-location {
+    background: #e9f5ff;
+    border: 1.5px solid #b3e0ff;
+    border-radius: 12px;
+    padding: 18px 20px;
+    font-size: 1.18rem;
+    font-weight: 500;
+    color: #007bff;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 2px 8px rgba(0,123,255,0.07);
+    transition: background 0.2s, border 0.2s;
+}
+.current-location-icon {
+    font-size: 1.6em;
+    margin-right: 6px;
+    color: #007bff;
+    display: inline-block;
+}

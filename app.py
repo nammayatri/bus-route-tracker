@@ -1,0 +1,229 @@
+import uuid
+from flask import Flask, request, jsonify, session, render_template, redirect, url_for
+from functools import wraps
+import json
+import os
+from datetime import datetime, timedelta
+import psycopg2
+from clickhouse_driver import Client
+
+
+app = Flask(__name__)
+app.secret_key = "your_secret_key_here"
+app.permanent_session_lifetime = timedelta(days=365)  # Effectively permanent
+
+# Dummy data for local testing
+DUMMY_ROUTES = [
+    {"route_number": "1", "tummoc_route_id": "route1", "route_name": "City Center - North Station"},
+    {"route_number": "2", "tummoc_route_id": "route2", "route_name": "East Mall - West Terminal"},
+    {"route_number": "3", "tummoc_route_id": "route3", "route_name": "South Park - Downtown"}
+]
+
+DUMMY_STOPS = {
+    "route1": [
+        {"stop_id": "stop1", "stop_name": "City Center", "lat": 12.9716, "lon": 77.5946},
+        {"stop_id": "stop2", "stop_name": "North Station", "lat": 12.9784, "lon": 77.6408}
+    ],
+    "route2": [
+        {"stop_id": "stop3", "stop_name": "East Mall", "lat": 12.9716, "lon": 77.6408},
+        {"stop_id": "stop4", "stop_name": "West Terminal", "lat": 12.9784, "lon": 77.5946}
+    ],
+    "route3": [
+        {"stop_id": "stop5", "stop_name": "South Park", "lat": 12.9750, "lon": 77.6000},
+        {"stop_id": "stop6", "stop_name": "Downtown", "lat": 12.9750, "lon": 77.6300}
+    ]
+}
+
+# File-based storage for local testing
+LOCAL_DATA_FILE = "local_data.json"
+
+def load_local_data():
+    try:
+        with open(LOCAL_DATA_FILE, 'r') as f:
+            content = f.read().strip()
+            if not content:
+                return {"stop_confirmations": []}
+            return json.loads(content)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {"stop_confirmations": []}
+
+def save_local_data(data):
+    with open(LOCAL_DATA_FILE, 'w') as f:
+        json.dump(data, f, indent=2)
+
+# Database configurations with fallback
+try:
+    PG_CONFIG = {
+        'dbname': 'mtc_replica',
+        'user': os.getenv('DB_USER'),
+        'password': os.getenv('DB_PASSWORD'),
+        'host': os.getenv('DB_HOST', 'localhost')
+    }
+    conn = psycopg2.connect(**PG_CONFIG)
+    conn.close()
+    USE_DATABASE = True
+except Exception as e:
+    print(f"Database connection failed, using local storage: {e}")
+    USE_DATABASE = False
+
+try:
+    CH_CLIENT = Client(
+        host=os.getenv('CH_HOST', 'localhost'),
+        user=os.getenv('CH_USER'),
+        password=os.getenv('CH_PASSWORD')
+    )
+    CH_CLIENT.execute('SELECT 1')  # Test connection
+    USE_CLICKHOUSE = True
+except Exception as e:
+    print(f"ClickHouse connection failed, using local storage: {e}")
+    USE_CLICKHOUSE = False
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
+def load_users():
+    try:
+        with open('users.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        return render_template('login.html')
+    
+    data = request.get_json()
+    password = data.get('password')
+    users = load_users()
+    
+    for user_id, user_data in users.items():
+        if user_data['password'] == password:
+            session.permanent = True  # Make session permanent until logout
+            session['user_id'] = user_id
+            session['city'] = user_data.get('city')
+            session['access'] = user_data.get('access')
+            session['vehicle_type'] = user_data.get('vehicle_type')
+            return jsonify({'success': True})
+    
+    return jsonify({'error': 'Invalid credentials'}), 401
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+@app.route('/api/routes')
+@login_required
+def get_routes():
+    if USE_DATABASE:
+        try:
+            conn = psycopg2.connect(**PG_CONFIG)
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT route_number, tummoc_route_id, route_name 
+                FROM routes 
+                ORDER BY route_number
+            """)
+            routes = [
+                {
+                    'route_number': row[0],
+                    'tummoc_route_id': row[1],
+                    'route_name': row[2]
+                }
+                for row in cur.fetchall()
+            ]
+            cur.close()
+            conn.close()
+            return jsonify(routes)
+        except Exception as e:
+            print(f"Database error, using dummy data: {e}")
+    
+    return jsonify(DUMMY_ROUTES)
+
+@app.route('/api/stops')
+@login_required
+def get_stops():
+    route_id = request.args.get('route_id')
+    if not route_id:
+        return jsonify({'error': 'route_id is required'}), 400
+    
+    if USE_DATABASE:
+        try:
+            conn = psycopg2.connect(**PG_CONFIG)
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT stop_id, stop_name, latitude, longitude 
+                FROM stops 
+                WHERE route_id = %s 
+                ORDER BY sequence_number
+            """, (route_id,))
+            stops = [
+                {
+                    'stop_id': row[0],
+                    'stop_name': row[1],
+                    'lat': float(row[2]),
+                    'lon': float(row[3])
+                }
+                for row in cur.fetchall()
+            ]
+            cur.close()
+            conn.close()
+            return jsonify(stops)
+        except Exception as e:
+            print(f"Database error, using dummy data: {e}")
+    
+    return jsonify(DUMMY_STOPS.get(route_id, []))
+
+@app.route('/api/record', methods=['POST'])
+@login_required
+def record_stop():
+    data = request.get_json()
+    required_fields = ['route_id', 'stop_id', 'stop_name', 'lat', 'lon']
+    
+    if not all(field in data for field in required_fields):
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    record = {
+        'id': str(uuid.uuid4()),
+        'route_id': data['route_id'],
+        'stop_id': data['stop_id'],
+        'stop_name': data['stop_name'],
+        'latitude': data['lat'],
+        'longitude': data['lon'],
+        'user_id': session['user_id'],
+        'timestamp': datetime.now().isoformat()
+    }
+    
+    if USE_CLICKHOUSE:
+        try:
+            CH_CLIENT.execute(
+                '''
+                INSERT INTO stop_confirmations 
+                (route_id, stop_id, stop_name, latitude, longitude, user_id, timestamp)
+                VALUES
+                ''',
+                [(record['route_id'], record['stop_id'], record['stop_name'],
+                  record['latitude'], record['longitude'], record['user_id'],
+                  datetime.fromisoformat(record['timestamp']))]
+            )
+        except Exception as e:
+            print(f"ClickHouse error, using local storage: {e}")
+            local_data = load_local_data()
+            local_data['stop_confirmations'].append(record)
+            save_local_data(local_data)
+    else:
+        local_data = load_local_data()
+        local_data['stop_confirmations'].append(record)
+        save_local_data(local_data)
+    
+    return jsonify({'success': True})
+
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=8000)

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#007bff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Bus Stop Data Collection Tool</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Bus Stop Data Collection</h1>
+            <div class="header-controls">
+                <div id="connection-status" class="status online">Online</div>
+                <button onclick="logout()" class="logout-btn">Logout</button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div id="current-location" class="location-display">Waiting for GPS...</div>
+
+            <div class="route-selection">
+                <h2>Select Route</h2>
+                <select id="routeSelect" onchange="loadStops()">
+                    <option value="">Select a route...</option>
+                </select>
+            </div>
+
+            <div class="stops-container">
+                <h2>Stops</h2>
+                <input id="stopSearchInput" type="text" placeholder="Search stop by name..." />
+                <div id="topStops" class="top-stops"></div>
+                <div id="sliderStops" class="slider-stops"></div>
+                <div class="stop-selection">
+                    <select id="stopSelect" onchange="handleStopSelection()">
+                        <option value="">Select a stop...</option>
+                    </select>
+                    <input id="manualStopInput" type="text" placeholder="Enter stop name manually">
+                </div>
+            </div>
+
+            <div class="recording-panel">
+                <h2>Record Stop</h2>
+                <button id="recordButton" onclick="startRecording()" class="record-btn">Record Stop</button>
+                <div id="confirmationPanel" class="hidden">
+                    <h3>Nearest Stop:</h3>
+                    <p id="nearestStop"></p>
+                    <div class="confirmation-buttons">
+                        <button onclick="confirmStop(true)">Yes, this is correct</button>
+                        <button onclick="confirmStop(false)">No, select different stop</button>
+                    </div>
+                    <select id="manualStopSelect" class="hidden"></select>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="statusModal" class="modal hidden">
+        <div class="modal-content">
+            <span id="modalMessage">Status</span>
+        </div>
+    </div>
+    <div id="manualConfirmModal" class="modal hidden">
+        <div class="modal-content">
+            <div style="margin-bottom: 12px;">
+                <strong>Confirm Manual Stop</strong>
+            </div>
+            <div id="manualConfirmText" style="margin-bottom: 18px;"></div>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button id="manualConfirmSubmit" style="flex:1;">Submit</button>
+                <button id="manualConfirmCancel" style="flex:1; background:#ccc; color:#222;">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

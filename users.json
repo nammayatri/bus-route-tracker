@@ -1,0 +1,8 @@
+{
+    "user1": {
+        "password": "test",
+        "city": "bangalore",
+        "access": "admin",
+        "vehicle_type": "bus"
+    }
+}

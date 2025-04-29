@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Stop Tool - Login</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="login-container">
+        <h1>Bus Stop Tool</h1>
+        <div class="login-form">
+            <input type="password" id="password" placeholder="Enter password" required>
+            <button onclick="login()">Login</button>
+            <div id="error-message" class="error"></div>
+        </div>
+    </div>
+
+    <script>
+        async function login() {
+            const password = document.getElementById('password').value;
+            const errorElement = document.getElementById('error-message');
+            
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    window.location.href = '/static/index.html';
+                } else {
+                    errorElement.textContent = data.error || 'Login failed';
+                }
+            } catch (error) {
+                errorElement.textContent = 'An error occurred';
+            }
+        }
+
+        // Allow Enter key to trigger login
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                login();
+            }
+        });
+    </script>
+</body>
+</html>
