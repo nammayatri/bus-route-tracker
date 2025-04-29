@@ -250,23 +250,16 @@ button:hover, .record-btn:hover {
     }
     
     #current-location {
-        padding: 12px 8px;
+        padding: 7px 6px;
         font-size: 0.82rem;
         border-radius: 9px;
-        gap: 7px;
-        margin-bottom: 12px;
-        word-break: normal;
-        white-space: nowrap;
-        overflow: hidden;
-        min-width: 0;
-        max-width: 100%;
-        display: flex;
-        flex-wrap: nowrap;
-        align-items: center;
+        gap: 5px;
+        margin-bottom: 10px;
+        min-height: 32px;
     }
     .current-location-icon {
-        font-size: 1.1em;
-        margin-right: 3px;
+        font-size: 1em;
+        margin-right: 2px;
     }
     #current-location span {
         text-overflow: ellipsis;
