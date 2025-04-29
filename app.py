@@ -15,28 +15,6 @@ app = Flask(__name__)
 app.secret_key = "your_secret_key_here"
 app.permanent_session_lifetime = timedelta(days=365)  # Effectively permanent
 
-# Dummy data for local testing
-DUMMY_ROUTES = [
-    {"route_number": "1", "tummoc_route_id": "route1", "route_name": "City Center - North Station"},
-    {"route_number": "2", "tummoc_route_id": "route2", "route_name": "East Mall - West Terminal"},
-    {"route_number": "3", "tummoc_route_id": "route3", "route_name": "South Park - Downtown"}
-]
-
-DUMMY_STOPS = {
-    "route1": [
-        {"stop_id": "stop1", "stop_name": "City Center", "lat": 12.9716, "lon": 77.5946},
-        {"stop_id": "stop2", "stop_name": "North Station", "lat": 12.9784, "lon": 77.6408}
-    ],
-    "route2": [
-        {"stop_id": "stop3", "stop_name": "East Mall", "lat": 12.9716, "lon": 77.6408},
-        {"stop_id": "stop4", "stop_name": "West Terminal", "lat": 12.9784, "lon": 77.5946}
-    ],
-    "route3": [
-        {"stop_id": "stop5", "stop_name": "South Park", "lat": 12.9750, "lon": 77.6000},
-        {"stop_id": "stop6", "stop_name": "Downtown", "lat": 12.9750, "lon": 77.6300}
-    ]
-}
-
 # File-based storage for local testing
 LOCAL_DATA_FILE = "local_data.json"
 
@@ -179,12 +157,12 @@ def record_stop():
             CH_CLIENT.execute(
                 '''
                 INSERT INTO stop_confirmations 
-                (id, route_id, stop_id, stop_name, latitude, longitude, user_id, timestamp)
+                (id, route_id, stop_id, stop_name, latitude, longitude, user_id, timestamp, type)
                 VALUES
                 ''',
                 [(record['id'], record['route_id'], record['stop_id'], record['stop_name'],
                   record['latitude'], record['longitude'], record['user_id'],
-                  datetime.fromisoformat(record['timestamp']))]
+                  datetime.fromisoformat(record['timestamp']), record['type'])]
             )
         except Exception as e:
             print(f"ClickHouse error, using local storage: {e}")
@@ -218,12 +196,39 @@ def location_update():
         'timestamp': data.get('timestamp'),
         'type': 'LOCATION_RECORD'
     }
-    # Store in local_data.json under 'location_updates'
-    local_data = load_local_data()
-    if 'location_updates' not in local_data:
-        local_data['location_updates'] = []
-    local_data['location_updates'].append(log_entry)
-    save_local_data(local_data)
+    if USE_CLICKHOUSE:
+        try:
+            CH_CLIENT.execute(
+                '''
+                INSERT INTO location_updates 
+                (id, user_id, route_id, stop_id, stop_name, latitude, longitude, timestamp, type)
+                VALUES
+                ''',
+                [(
+                    log_entry['id'],
+                    log_entry['user_id'],
+                    log_entry['route_id'],
+                    log_entry['stop_id'],
+                    log_entry['stop_name'],
+                    log_entry['latitude'],
+                    log_entry['longitude'],
+                    datetime.fromisoformat(log_entry['timestamp']),
+                    log_entry['type']
+                )]
+            )
+        except Exception as e:
+            print(f"ClickHouse error, using local storage: {e}")
+            local_data = load_local_data()
+            if 'location_updates' not in local_data:
+                local_data['location_updates'] = []
+            local_data['location_updates'].append(log_entry)
+            save_local_data(local_data)
+    else:
+        local_data = load_local_data()
+        if 'location_updates' not in local_data:
+            local_data['location_updates'] = []
+        local_data['location_updates'].append(log_entry)
+        save_local_data(local_data)
     print(f"Location update from user {user_id}: {data.get('lat')}, {data.get('lon')} at {data.get('timestamp')}")
     return jsonify({'success': True})
 
