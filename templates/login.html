@@ -5,17 +5,61 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bus Stop Tool - Login</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .login-bg {
+            position: relative;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #007bff 0%, #00c6ff 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .login-bus-bg {
+            position: absolute;
+            left: 0; right: 0; bottom: 0;
+            width: 100vw;
+            height: 160px;
+            pointer-events: none;
+            z-index: 0;
+        }
+        @media (max-width: 600px) {
+            .login-bus-bg { height: 90px; }
+        }
+    </style>
 </head>
-<body>
-    <div class="login-container">
-        <h1>Bus Stop Tool</h1>
+<body class="login-bg">
+    <div class="login-container" style="z-index:1;">
+        <svg class="login-logo" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="24" cy="24" r="22" fill="#e9f5ff" stroke="#007bff" stroke-width="2"/>
+            <rect x="14" y="18" width="20" height="12" rx="4" fill="#007bff"/>
+            <rect x="18" y="22" width="12" height="4" rx="2" fill="#fff"/>
+            <circle cx="24" cy="24" r="2.5" fill="#00c6ff"/>
+        </svg>
+        <h1>Add Bus Stop Tool</h1>
         <div class="login-form">
             <input type="password" id="password" placeholder="Enter password" required>
             <button onclick="login()">Login</button>
             <div id="error-message" class="error"></div>
         </div>
     </div>
-
+    <svg class="login-bus-bg" viewBox="0 0 900 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="120" width="900" height="40" fill="#e9f5ff"/>
+        <ellipse cx="120" cy="140" rx="60" ry="18" fill="#b3e0ff"/>
+        <ellipse cx="780" cy="145" rx="50" ry="14" fill="#b3e0ff"/>
+        <rect x="200" y="70" width="320" height="50" rx="18" fill="#fff" stroke="#007bff" stroke-width="3"/>
+        <rect x="210" y="80" width="220" height="30" rx="8" fill="#e9f5ff"/>
+        <rect x="440" y="80" width="60" height="30" rx="8" fill="#b3e0ff"/>
+        <circle cx="240" cy="120" r="14" fill="#007bff" stroke="#fff" stroke-width="4"/>
+        <circle cx="480" cy="120" r="14" fill="#007bff" stroke="#fff" stroke-width="4"/>
+        <rect x="270" y="90" width="40" height="12" rx="4" fill="#fff"/>
+        <rect x="320" y="90" width="40" height="12" rx="4" fill="#fff"/>
+        <rect x="370" y="90" width="40" height="12" rx="4" fill="#fff"/>
+        <rect x="420" y="90" width="10" height="12" rx="3" fill="#fff"/>
+        <rect x="455" y="90" width="30" height="12" rx="4" fill="#fff"/>
+        <rect x="520" y="110" width="60" height="8" rx="4" fill="#b3e0ff"/>
+        <rect x="600" y="120" width="80" height="10" rx="5" fill="#e9f5ff"/>
+    </svg>
     <script>
         async function login() {
             const password = document.getElementById('password').value;

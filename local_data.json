@@ -1,0 +1,170 @@
+{
+  "stop_confirmations": [],
+  "location_updates": [
+    {
+      "id": "ffd20f1b-f3a3-40ab-9f66-2d56916c4b10",
+      "user_id": "user1",
+      "route_id": null,
+      "stop_id": null,
+      "stop_name": null,
+      "latitude": 12.880433889355672,
+      "longitude": 80.24918651055167,
+      "timestamp": "2025-04-29T22:17:22.238Z",
+      "type": "LOCATION_RECORD"
+    },
+    {
+      "id": "33990ff6-4c9b-4934-add1-454b88df11e3",
+      "user_id": "user1",
+      "route_id": null,
+      "stop_id": null,
+      "stop_name": null,
+      "latitude": 12.880433889355672,
+      "longitude": 80.24918651055167,
+      "timestamp": "2025-04-29T22:18:45.217Z",
+      "type": "LOCATION_RECORD"
+    },
+    {
+      "id": "11652f27-8c89-40fb-8435-16c1f7052135",
+      "user_id": "user1",
+      "route_id": null,
+      "stop_id": null,
+      "stop_name": null,
+      "latitude": 12.880433889355672,
+      "longitude": 80.24918651055167,
+      "timestamp": "2025-04-29T22:18:45.225Z",
+      "type": "LOCATION_RECORD"
+    },
+    {
+      "id": "0b9d8b8d-ae53-4bf4-8867-b650f55fa965",
+      "user_id": "user1",
+      "route_id": null,
+      "stop_id": null,
+      "stop_name": null,
+      "latitude": 12.880451717974111,
+      "longitude": 80.24917063423054,
+      "timestamp": "2025-04-29T22:18:45.642Z",
+      "type": "LOCATION_RECORD"
+    },
+    {
+      "id": "fe9e7349-8208-4fd2-a844-b65be8c9dc22",
+      "user_id": "user1",
+      "route_id": null,
+      "stop_id": null,
+      "stop_name": null,
+      "latitude": 12.880451717974111,
+      "longitude": 80.24917063423054,
+      "timestamp": "2025-04-29T22:19:05.843Z",
+      "type": "LOCATION_RECORD"
+    },
+    {
+      "id": "ec7143a1-02c2-4df9-b690-509bb2a7bcb0",
+      "user_id": "user1",
+      "route_id": null,
+      "stop_id": null,
+      "stop_name": null,
+      "latitude": 12.880451717974111,
+      "longitude": 80.24917063423054,
+      "timestamp": "2025-04-29T22:19:05.846Z",
+      "type": "LOCATION_RECORD"
+    },
+    {
+      "id": "3e3d587b-e0a8-48bc-87e9-129378b45630",
+      "user_id": "user1",
+      "route_id": null,
+      "stop_id": null,
+      "stop_name": null,
+      "latitude": 12.880451834521342,
+      "longitude": 80.24917050267015,
+      "timestamp": "2025-04-29T22:19:05.873Z",
+      "type": "LOCATION_RECORD"
+    },
+    {
+      "id": "33c93fb6-cea8-4aee-abfb-71beab64ec27",
+      "user_id": "user1",
+      "route_id": null,
+      "stop_id": null,
+      "stop_name": null,
+      "latitude": 12.8804518200337,
+      "longitude": 80.24917051891948,
+      "timestamp": "2025-04-29T22:19:05.874Z",
+      "type": "LOCATION_RECORD"
+    },
+    {
+      "id": "aea5e1c7-02fb-4040-b5ee-42ddf2a71c8e",
+      "user_id": "user1",
+      "route_id": null,
+      "stop_id": null,
+      "stop_name": null,
+      "latitude": 12.8804518200337,
+      "longitude": 80.24917051891948,
+      "timestamp": "2025-04-29T22:19:07.694Z",
+      "type": "LOCATION_RECORD"
+    },
+    {
+      "id": "763847c5-61c7-4e04-a937-6a8ebb0f44b5",
+      "user_id": "user1",
+      "route_id": "3168",
+      "stop_id": "VUmYNFZt",
+      "stop_name": null,
+      "latitude": 12.8804518027653,
+      "longitude": 80.2491705382871,
+      "timestamp": "2025-04-29T22:19:46.935Z",
+      "type": "LOCATION_RECORD"
+    },
+    {
+      "id": "8daa4566-5fd5-46f0-a03b-545b14145239",
+      "user_id": "user1",
+      "route_id": "3168",
+      "stop_id": "VUmYNFZt",
+      "stop_name": null,
+      "latitude": 12.880724779926295,
+      "longitude": 80.24907029634488,
+      "timestamp": "2025-04-29T22:20:18.589Z",
+      "type": "LOCATION_RECORD"
+    },
+    {
+      "id": "d95be33b-8933-4198-8814-fc9a08bf7e12",
+      "user_id": "user1",
+      "route_id": "3168",
+      "stop_id": "VUmYNFZt",
+      "stop_name": null,
+      "latitude": 12.880603368008396,
+      "longitude": 80.24901655585542,
+      "timestamp": "2025-04-29T22:20:26.220Z",
+      "type": "LOCATION_RECORD"
+    },
+    {
+      "id": "7ef91980-1433-4669-b422-f6794e49d0f6",
+      "user_id": "user1",
+      "route_id": null,
+      "stop_id": null,
+      "stop_name": null,
+      "latitude": 12.880603368008396,
+      "longitude": 80.24901655585542,
+      "timestamp": "2025-04-29T22:20:29.160Z",
+      "type": "LOCATION_RECORD"
+    },
+    {
+      "id": "f9a65982-a301-43a5-ba94-0838effdbd2f",
+      "user_id": "user1",
+      "route_id": null,
+      "stop_id": null,
+      "stop_name": null,
+      "latitude": 12.88052880603582,
+      "longitude": 80.24907840593589,
+      "timestamp": "2025-04-29T22:20:46.673Z",
+      "type": "LOCATION_RECORD"
+    },
+    {
+      "id": "457b9458-4b5d-48e8-a38d-30a8c0ae2484",
+      "user_id": "user1",
+      "route_id": null,
+      "stop_id": null,
+      "stop_name": null,
+      "latitude": 12.880655765177604,
+      "longitude": 80.24911235511549,
+      "timestamp": "2025-04-29T22:22:03.776Z",
+      "type": "LOCATION_RECORD"
+    }
+  ]
+}
