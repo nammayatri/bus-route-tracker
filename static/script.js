@@ -55,6 +55,15 @@ function showError(message) {
     const errorDiv = document.createElement('div');
     errorDiv.className = 'error-message';
     errorDiv.textContent = message;
+    errorDiv.style.textAlign = 'center';
+    errorDiv.style.top = '10px';
+    errorDiv.style.left = '10px';
+    errorDiv.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
+    errorDiv.style.color = 'white';
+    errorDiv.style.padding = '10px';
+    errorDiv.style.zIndex = '1000';
+    errorDiv.style.margin = 'auto';
+    errorDiv.style.borderRadius = '5px';
     document.body.appendChild(errorDiv);
     setTimeout(() => errorDiv.remove(), 5000);
 }
@@ -77,8 +86,8 @@ async function loadRoutes() {
         
         routes.forEach(route => {
             const option = document.createElement('option');
-            option.value = route.tummoc_route_id;
-            option.textContent = `${route.route_number} - ${route.route_name}`;
+            option.value = route.route_code;
+            option.textContent = `${route.route_name} | (TOWARDS ${route.route_end_point || ''})`;
             select.appendChild(option);
         });
     } catch (error) {
@@ -164,7 +173,13 @@ if (stopSelectElem) {
 // --- Update loadStops to use new UI ---
 async function loadStops() {
     const routeId = document.getElementById('routeSelect').value;
-    if (!routeId) return;
+    if (!routeId) {
+        stops = [];
+        selectedRoute = null;
+        selectedStopId = null;
+        renderStopsUI();
+        return;
+    }
     try {
         const response = await fetch(`/api/stops?route_id=${routeId}`);
         if (!response.ok) throw new Error('Failed to load stops');

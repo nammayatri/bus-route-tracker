@@ -6,6 +6,9 @@ import os
 from datetime import datetime, timedelta
 import psycopg2
 from clickhouse_driver import Client
+import time
+import requests
+import logging
 
 
 app = Flask(__name__)
@@ -36,6 +39,21 @@ DUMMY_STOPS = {
 
 # File-based storage for local testing
 LOCAL_DATA_FILE = "local_data.json"
+
+# Configurable cache duration (in hours)
+CACHE_HOURS = int(os.getenv('ROUTE_CACHE_HOURS', 1))  # Default: 1 hour
+
+# In-memory cache
+route_cache = {
+    'routes': None,
+    'routes_timestamp': 0,
+    'stops': {},  # route_id: {'data': ..., 'timestamp': ...}
+}
+
+API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8090')
+API_TOKEN = os.getenv('API_TOKEN', 'test')
+API_CITY = os.getenv('API_CITY', 'chennai')
+API_VEHICLE_TYPE = os.getenv('API_VEHICLE_TYPE', 'bus')
 
 def load_local_data():
     try:
@@ -125,30 +143,7 @@ def logout():
 @app.route('/api/routes')
 @login_required
 def get_routes():
-    if USE_DATABASE:
-        try:
-            conn = psycopg2.connect(**PG_CONFIG)
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT route_number, tummoc_route_id, route_name 
-                FROM routes 
-                ORDER BY route_number
-            """)
-            routes = [
-                {
-                    'route_number': row[0],
-                    'tummoc_route_id': row[1],
-                    'route_name': row[2]
-                }
-                for row in cur.fetchall()
-            ]
-            cur.close()
-            conn.close()
-            return jsonify(routes)
-        except Exception as e:
-            print(f"Database error, using dummy data: {e}")
-    
-    return jsonify(DUMMY_ROUTES)
+    return jsonify(get_cached_routes())
 
 @app.route('/api/stops')
 @login_required
@@ -156,33 +151,7 @@ def get_stops():
     route_id = request.args.get('route_id')
     if not route_id:
         return jsonify({'error': 'route_id is required'}), 400
-    
-    if USE_DATABASE:
-        try:
-            conn = psycopg2.connect(**PG_CONFIG)
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT stop_id, stop_name, latitude, longitude 
-                FROM stops 
-                WHERE route_id = %s 
-                ORDER BY sequence_number
-            """, (route_id,))
-            stops = [
-                {
-                    'stop_id': row[0],
-                    'stop_name': row[1],
-                    'lat': float(row[2]),
-                    'lon': float(row[3])
-                }
-                for row in cur.fetchall()
-            ]
-            cur.close()
-            conn.close()
-            return jsonify(stops)
-        except Exception as e:
-            print(f"Database error, using dummy data: {e}")
-    
-    return jsonify(DUMMY_STOPS.get(route_id, []))
+    return jsonify(get_cached_stops(route_id))
 
 @app.route('/api/record', methods=['POST'])
 @login_required
@@ -231,6 +200,74 @@ def record_stop():
 @app.route('/record-data/bus-data')
 def record_bus_data():
     return send_from_directory('static', 'index.html')
+
+def fetch_routes_from_api():
+    print("Fetching routes from new external API...")
+    url = f'{API_BASE_URL}/api/route/list?city={API_CITY}&vehicle_type={API_VEHICLE_TYPE}'
+    headers = {'X-Api-Token': API_TOKEN}
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        response.raise_for_status()
+        return response.json()['routes']
+    except Exception as e:
+        logging.error(f"Failed to fetch routes from external API: {e}")
+        return []  # or fallback to DUMMY_ROUTES
+
+def fetch_stops_from_api(route_id):
+    print(f"Fetching stops for route {route_id} from new external API...")
+    url = f'{API_BASE_URL}/api/route/{route_id}?city={API_CITY}&vehicle_type={API_VEHICLE_TYPE}'
+    headers = {'Authorization': f'Bearer {API_TOKEN}'}
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        response.raise_for_status()
+        return response.json()['features']
+    except Exception as e:
+        logging.error(f"Failed to fetch stops for route {route_id} from external API: {e}")
+        return []  # or fallback to DUMMY_STOPS.get(route_id, [])
+
+def get_cached_routes():
+    now = time.time()
+    if (route_cache['routes'] is None or
+        now - route_cache['routes_timestamp'] > CACHE_HOURS * 3600):
+        # Fetch and cache
+        raw_routes = fetch_routes_from_api()
+        # Transform to expected structure
+        route_cache['routes'] = [
+            {
+                'route_code': r['routeCode'],
+                'route_name': r['routeName'],
+                "route_end_point": r['routeEnd'],
+                "route_start_point": r['routeStart']
+            }
+            for r in raw_routes
+        ]
+        route_cache['routes_timestamp'] = now
+    return route_cache['routes']
+
+def get_cached_stops(route_id):
+    now = time.time()
+    stops_entry = route_cache['stops'].get(route_id)
+    if (not stops_entry or
+        now - stops_entry['timestamp'] > CACHE_HOURS * 3600):
+        # Fetch and cache
+        raw_stops = fetch_stops_from_api(route_id)
+        # Transform to expected structure
+        stops_data = []
+        for feature in raw_stops:
+            if feature['geometry']['type'] == 'Point':
+                coords = feature['geometry']['coordinates']
+                props = feature['properties']
+                stops_data.append({
+                    'stop_id': props.get('Stop Code', ''),
+                    'stop_name': props.get('Stop Name', ''),
+                    'lat': coords[1],
+                    'lon': coords[0]
+                })
+        route_cache['stops'][route_id] = {
+            'data': stops_data,
+            'timestamp': now
+        }
+    return route_cache['stops'][route_id]['data']
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8000)
