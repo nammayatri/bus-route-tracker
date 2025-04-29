@@ -32,6 +32,7 @@ API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8090')
 API_TOKEN = os.getenv('API_TOKEN', 'test')
 API_CITY = os.getenv('API_CITY', 'chennai')
 API_VEHICLE_TYPE = os.getenv('API_VEHICLE_TYPE', 'bus')
+USE_CLICKHOUSE = os.getenv('USE_CLICKHOUSE', 'false').lower() == 'true'
 
 def load_local_data():
     try:
@@ -48,31 +49,27 @@ def save_local_data(data):
         json.dump(data, f, indent=2)
 
 # Database configurations with fallback
-try:
-    PG_CONFIG = {
-        'dbname': 'mtc_replica',
-        'user': os.getenv('DB_USER'),
-        'password': os.getenv('DB_PASSWORD'),
-        'host': os.getenv('DB_HOST', 'localhost')
-    }
-    conn = psycopg2.connect(**PG_CONFIG)
-    conn.close()
-    USE_DATABASE = True
-except Exception as e:
-    print(f"Database connection failed, using local storage: {e}")
-    USE_DATABASE = False
+# try:
+#     PG_CONFIG = {
+#         'dbname': 'mtc_replica',
+#         'user': os.getenv('DB_USER'),
+#         'password': os.getenv('DB_PASSWORD'),
+#         'host': os.getenv('DB_HOST', 'localhost')
+#     }
+#     conn = psycopg2.connect(**PG_CONFIG)
+#     conn.close()
+#     USE_DATABASE = True
+# except Exception as e:
+#     print(f"Database connection failed, using local storage: {e}")
+#     USE_DATABASE = False
 
-try:
-    CH_CLIENT = Client(
+def get_clickhouse_client():
+    return Client(
         host=os.getenv('CH_HOST', 'localhost'),
-        user=os.getenv('CH_USER'),
-        password=os.getenv('CH_PASSWORD')
+        user=os.getenv('CH_USER', 'default'),
+        password=os.getenv('CH_PASSWORD', 'root'),
+        database=os.getenv('CH_DB', 'default')
     )
-    CH_CLIENT.execute('SELECT 1')  # Test connection
-    USE_CLICKHOUSE = True
-except Exception as e:
-    print(f"ClickHouse connection failed, using local storage: {e}")
-    USE_CLICKHOUSE = False
 
 def login_required(f):
     @wraps(f)
@@ -154,16 +151,26 @@ def record_stop():
     
     if USE_CLICKHOUSE:
         try:
-            CH_CLIENT.execute(
+            client = get_clickhouse_client()
+            client.execute(
                 '''
-                INSERT INTO stop_confirmations 
+                INSERT INTO default.bus_stop_location_data 
                 (id, route_id, stop_id, stop_name, latitude, longitude, user_id, timestamp, type)
                 VALUES
                 ''',
-                [(record['id'], record['route_id'], record['stop_id'], record['stop_name'],
-                  record['latitude'], record['longitude'], record['user_id'],
-                  datetime.fromisoformat(record['timestamp']), record['type'])]
+                [(
+                    record['id'] or '',
+                    record['route_id'] or '',
+                    record['stop_id'] or '',
+                    record['stop_name'] or '',
+                    record['latitude'] if record['latitude'] is not None else 0.0,
+                    record['longitude'] if record['longitude'] is not None else 0.0,
+                    record['user_id'] or '',
+                    datetime.fromisoformat(record['timestamp'].replace('Z', '+00:00')),
+                    record['type'] or ''
+                )]
             )
+            print(f"Stop record from user {session['user_id']}: {record['stop_id']}, {record['stop_name']} at {record['timestamp']}")
         except Exception as e:
             print(f"ClickHouse error, using local storage: {e}")
             local_data = load_local_data()
@@ -198,24 +205,26 @@ def location_update():
     }
     if USE_CLICKHOUSE:
         try:
-            CH_CLIENT.execute(
+            client = get_clickhouse_client()
+            client.execute(
                 '''
-                INSERT INTO location_updates 
+                INSERT INTO default.bus_stop_location_data 
                 (id, user_id, route_id, stop_id, stop_name, latitude, longitude, timestamp, type)
                 VALUES
                 ''',
                 [(
                     log_entry['id'],
                     log_entry['user_id'],
-                    log_entry['route_id'],
-                    log_entry['stop_id'],
-                    log_entry['stop_name'],
-                    log_entry['latitude'],
-                    log_entry['longitude'],
-                    datetime.fromisoformat(log_entry['timestamp']),
-                    log_entry['type']
+                    log_entry['route_id'] or '',
+                    log_entry['stop_id'] or '',
+                    log_entry['stop_name'] or '',
+                    log_entry['latitude'] if log_entry['latitude'] is not None else 0.0,
+                    log_entry['longitude'] if log_entry['longitude'] is not None else 0.0,
+                    datetime.fromisoformat(log_entry['timestamp'].replace('Z', '+00:00')),
+                    log_entry['type'] or ''
                 )]
             )
+            print(f"Location update from user {user_id}: {data.get('lat')}, {data.get('lon')} at {data.get('timestamp')}")
         except Exception as e:
             print(f"ClickHouse error, using local storage: {e}")
             local_data = load_local_data()
