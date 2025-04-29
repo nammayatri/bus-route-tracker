@@ -13,6 +13,8 @@ let selectedStopId = null;
 let lastKnownPosition = null;
 let uiUpdateInterval = null;
 
+let locationUpdateInterval = 2000;
+
 // Initialize the application
 async function init() {
     // Add online/offline event listeners
@@ -221,6 +223,8 @@ function startLocationTracking() {
                 lat: position.coords.latitude,
                 lon: position.coords.longitude
             };
+            // Send location update to backend every time we get a new position
+            sendLocationToBackend(position.coords.latitude, position.coords.longitude);
         },
         error => {
             console.error('Error getting location:', error);
@@ -228,7 +232,7 @@ function startLocationTracking() {
         },
         options
     );
-    // Update UI every 5 seconds
+    // Update UI every 2 seconds
     if (uiUpdateInterval) clearInterval(uiUpdateInterval);
     uiUpdateInterval = setInterval(() => {
         if (lastKnownPosition) {
@@ -238,7 +242,7 @@ function startLocationTracking() {
                 renderStopsUI();
             }
         }
-    }, 5000);
+    }, locationUpdateInterval);
 }
 
 // --- Search input event ---
@@ -340,6 +344,7 @@ async function startRecording() {
         stopName = manualInput.value.trim();
         if (!stopName) {
             showModal('Please enter a stop name.');
+            setTimeout(hideModal, 1500);
             return;
         }
         stopId = null;
@@ -446,3 +451,24 @@ window.addEventListener('beforeunload', () => {
         navigator.geolocation.clearWatch(locationWatchId);
     }
 });
+
+function sendLocationToBackend(lat, lon) {
+    let stop_id = selectedStopId || null;
+    let stop_name = null;
+    if (stop_id) {
+        const stopObj = stops.find(s => s.stop_id === stop_id);
+        stop_name = stopObj ? stopObj.stop_name : null;
+    }
+    fetch('/api/location-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            lat,
+            lon,
+            timestamp: new Date().toISOString(),
+            route_id: selectedRoute
+        })
+    }).catch(err => {
+        console.error('Failed to send location update:', err);
+    });
+}

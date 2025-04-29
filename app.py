@@ -60,10 +60,10 @@ def load_local_data():
         with open(LOCAL_DATA_FILE, 'r') as f:
             content = f.read().strip()
             if not content:
-                return {"stop_confirmations": []}
+                return {"stop_confirmations": [], "location_updates": []}
             return json.loads(content)
     except (FileNotFoundError, json.JSONDecodeError):
-        return {"stop_confirmations": []}
+        return {"stop_confirmations": [], "location_updates": []}
 
 def save_local_data(data):
     with open(LOCAL_DATA_FILE, 'w') as f:
@@ -170,7 +170,8 @@ def record_stop():
         'latitude': data['lat'],
         'longitude': data['lon'],
         'user_id': session['user_id'],
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now().isoformat(),
+        'type': 'STOP_RECORD'
     }
     
     if USE_CLICKHOUSE:
@@ -178,10 +179,10 @@ def record_stop():
             CH_CLIENT.execute(
                 '''
                 INSERT INTO stop_confirmations 
-                (route_id, stop_id, stop_name, latitude, longitude, user_id, timestamp)
+                (id, route_id, stop_id, stop_name, latitude, longitude, user_id, timestamp)
                 VALUES
                 ''',
-                [(record['route_id'], record['stop_id'], record['stop_name'],
+                [(record['id'], record['route_id'], record['stop_id'], record['stop_name'],
                   record['latitude'], record['longitude'], record['user_id'],
                   datetime.fromisoformat(record['timestamp']))]
             )
@@ -200,6 +201,31 @@ def record_stop():
 @app.route('/record-data/bus-data')
 def record_bus_data():
     return send_from_directory('static', 'index.html')
+
+@app.route('/api/location-update', methods=['POST'])
+@login_required
+def location_update():
+    data = request.get_json()
+    user_id = session.get('user_id')
+    log_entry = {
+        'id': str(uuid.uuid4()),
+        'user_id': user_id,
+        'route_id': data.get('route_id'),
+        'stop_id': data.get('stop_id'),
+        'stop_name': data.get('stop_name'),
+        'latitude': data.get('lat'),
+        'longitude': data.get('lon'),
+        'timestamp': data.get('timestamp'),
+        'type': 'LOCATION_RECORD'
+    }
+    # Store in local_data.json under 'location_updates'
+    local_data = load_local_data()
+    if 'location_updates' not in local_data:
+        local_data['location_updates'] = []
+    local_data['location_updates'].append(log_entry)
+    save_local_data(local_data)
+    print(f"Location update from user {user_id}: {data.get('lat')}, {data.get('lon')} at {data.get('timestamp')}")
+    return jsonify({'success': True})
 
 def fetch_routes_from_api():
     print("Fetching routes from new external API...")
