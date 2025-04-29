@@ -104,8 +104,8 @@ function renderStopsUI() {
     }
     filteredStops = stopsToShow;
     // Top 5 nearest
-    const top5 = stopsToShow.slice(0, 2);
-    const rest = stopsToShow.slice(2);
+    const top5 = stopsToShow.slice(0, 3);
+    const rest = stopsToShow.slice(3);
 
     // Render top 5
     const topStopsDiv = document.getElementById('topStops');
