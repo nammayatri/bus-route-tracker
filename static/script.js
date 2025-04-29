@@ -65,7 +65,7 @@ async function loadRoutes() {
         const response = await fetch('/api/routes');
         if (!response.ok) {
             if (response.status === 401) {
-                window.location.href = '/login';
+                window.location.href = '/record-data/login';
                 return;
             }
             throw new Error('Failed to load routes');

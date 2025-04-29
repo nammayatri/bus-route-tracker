@@ -1,5 +1,5 @@
 import uuid
-from flask import Flask, request, jsonify, session, render_template, redirect, url_for
+from flask import Flask, request, jsonify, session, render_template, redirect, url_for, send_from_directory
 from functools import wraps
 import json
 import os
@@ -93,7 +93,11 @@ def load_users():
     except FileNotFoundError:
         return {}
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/')
+def home():
+    return redirect(url_for('login'))
+
+@app.route('/record-data/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
         return render_template('login.html')
@@ -224,6 +228,9 @@ def record_stop():
     
     return jsonify({'success': True})
 
+@app.route('/record-data/bus-data')
+def record_bus_data():
+    return send_from_directory('static', 'index.html')
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8000)
