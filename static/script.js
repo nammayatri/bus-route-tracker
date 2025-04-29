@@ -215,7 +215,7 @@ function startLocationTracking() {
     const options = {
         enableHighAccuracy: true,
         timeout: 5000,
-        maximumAge: 0
+        maximumAge: 3000
     };
     locationWatchId = navigator.geolocation.watchPosition(
         position => {
@@ -300,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
         error => {
             showModal('Could not get your location. Please enable location services.', 'warning');
         },
-        { enableHighAccuracy: true, timeout: 4000, maximumAge: 3000 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
     );
 });
 
