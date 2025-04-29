@@ -124,11 +124,10 @@ async function loadRoutes() {
             }
             throw new Error('Failed to load routes');
         }
-        
-        const routes = await response.json();
+        let routes = await response.json();
+        routes = routes.sort((a, b) => String(a.route_code).localeCompare(String(b.route_code), undefined, {numeric: true, sensitivity: 'base'}));
         const select = document.getElementById('routeSelect');
         select.innerHTML = '<option value="">Select a route...</option>';
-        
         routes.forEach(route => {
             const option = document.createElement('option');
             option.value = route.route_code;
@@ -557,13 +556,11 @@ async function startRecording() {
         showModal('Please select a route', 'warning');
         return;
     }
-    
     const stopSelect = document.getElementById('stopSelect');
     const manualInput = document.getElementById('manualStopInput');
     let stopToRecord = null;
     let stopName = '';
     let stopId = '';
-    
     if (!stopSelect || stopSelect.value === '') {
         if (!manualInput) {
             showModal('UI elements not found', 'warning');
@@ -581,26 +578,25 @@ async function startRecording() {
         stopName = stopToRecord ? stopToRecord.stop_name : '';
         stopId = stopToRecord ? stopToRecord.stop_id : '';
     }
-    
-    // Optimization: Check if our current position is recent and accurate enough
     const now = Date.now();
     const lastPositionAge = lastKnownPosition ? (now - lastKnownPosition.timestamp) : Infinity;
-    
-    // If we have a recent (< 5 seconds old) and accurate position (< 20m), use it
-    if (lastKnownPosition && lastPositionAge < 5000 && locationAccuracy < 20) {
+    // If not moving and we have a recent (< 10s) and accurate (< 30m) position, use it immediately
+    if (!isMoving && lastKnownPosition && lastPositionAge < 10000 && locationAccuracy < 30) {
+        showManualConfirmModal(stopName, lastKnownPosition.lat, lastKnownPosition.lon, () => {
+            recordStopWithLocation(stopName, stopId, lastKnownPosition.lat, lastKnownPosition.lon);
+        });
+    } else if (lastKnownPosition && lastPositionAge < 5000 && locationAccuracy < 20) {
+        // If moving, fallback to previous logic for recent/accurate fix
         showManualConfirmModal(stopName, lastKnownPosition.lat, lastKnownPosition.lon, () => {
             recordStopWithLocation(stopName, stopId, lastKnownPosition.lat, lastKnownPosition.lon);
         });
     } else {
-        // Otherwise, get a fresh high-accuracy position
         showModal('Getting precise location...', 'spinner');
         navigator.geolocation.getCurrentPosition(
             position => {
                 hideModal();
                 const freshLat = position.coords.latitude;
                 const freshLon = position.coords.longitude;
-                
-                // Update our tracking state with this new position too
                 lastKnownPosition = {
                     lat: freshLat,
                     lon: freshLon,
@@ -608,7 +604,6 @@ async function startRecording() {
                 };
                 currentPosition = { lat: freshLat, lon: freshLon };
                 locationAccuracy = position.coords.accuracy;
-                
                 showManualConfirmModal(stopName, freshLat, freshLon, () => {
                     recordStopWithLocation(stopName, stopId, freshLat, freshLon);
                 });
