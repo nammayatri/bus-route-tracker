@@ -9,11 +9,24 @@ let locationWatchId = null;
 let filteredStops = [];
 let selectedStopId = null;
 
-// --- UI Lat/Lon update interval ---
+// --- Location tracking optimization vars ---
 let lastKnownPosition = null;
 let uiUpdateInterval = null;
+let lastPositionTimestamp = 0;
+let locationAccuracy = 0;
+let isMoving = false;
+let movementThreshold = 10; // meters
+let lastMovementCheck = 0;
+let batteryLevel = 1.0;
+let lowPowerMode = false;
 
-let locationUpdateInterval = 2000;
+// Adaptive intervals based on motion and battery state
+const LOCATION_INTERVALS = {
+    STATIONARY: 10000,      // 10 seconds when not moving
+    MOVING: 3000,           // 3 seconds when moving
+    LOW_BATTERY: 10000,     // 10 seconds when battery < 20%
+    UI_UPDATE: 3000         // 3 seconds UI refresh
+};
 
 // Initialize the application
 async function init() {
@@ -27,19 +40,44 @@ async function init() {
         return;
     }
     
-    // Request location permissions
+    // Request location permissions and check battery status
     try {
         const permission = await navigator.permissions.query({ name: 'geolocation' });
         if (permission.state === 'denied') {
             showError('Location access is required for this app to function');
             return;
         }
+        
+        // Check battery API if available
+        if ('getBattery' in navigator) {
+            const battery = await navigator.getBattery();
+            batteryLevel = battery.level;
+            updateBatteryStatus(battery);
+            
+            // Listen for battery changes
+            battery.addEventListener('levelchange', () => updateBatteryStatus(battery));
+            battery.addEventListener('chargingchange', () => updateBatteryStatus(battery));
+        }
     } catch (error) {
-        console.warn('Permissions API not supported:', error);
+        console.warn('Advanced APIs not supported:', error);
     }
     
     await loadRoutes();
-    startLocationTracking();
+    initLocationTracking();
+}
+
+// Update battery status and adjust tracking accordingly
+function updateBatteryStatus(battery) {
+    batteryLevel = battery.level;
+    const wasPreviouslyLowPower = lowPowerMode;
+    
+    // Enter low power mode if battery below 20% and not charging
+    lowPowerMode = (batteryLevel < 0.2) && !battery.charging;
+    
+    // If power mode changed, restart location tracking with new settings
+    if (lowPowerMode !== wasPreviouslyLowPower && locationWatchId !== null) {
+        restartLocationTracking();
+    }
 }
 
 // Handle online/offline status
@@ -49,6 +87,11 @@ function handleOnlineStatus() {
     if (statusElement) {
         statusElement.textContent = isOnline ? 'Online' : 'Offline';
         statusElement.className = isOnline ? 'status online' : 'status offline';
+    }
+    
+    // Only restart location tracking if we're online after being offline
+    if (isOnline && !locationWatchId) {
+        restartLocationTracking();
     }
 }
 
@@ -100,7 +143,7 @@ async function loadRoutes() {
 
 // --- New: Render stops UI ---
 function renderStopsUI() {
-    const searchValue = document.getElementById('stopSearchInput').value.trim().toLowerCase();
+    const searchValue = document.getElementById('stopSearchInput')?.value?.trim().toLowerCase() || '';
     // Always search from the full stops list
     let stopsToShow = stops;
     if (searchValue) {
@@ -120,61 +163,72 @@ function renderStopsUI() {
 
     // Render top 5
     const topStopsDiv = document.getElementById('topStops');
-    topStopsDiv.innerHTML = '';
-    top5.forEach(stop => {
-        const div = document.createElement('div');
-        div.className = 'top-stop-item' + (selectedStopId === stop.stop_id ? ' selected' : '');
-        const distKm = stop.distance ? (stop.distance / 1000).toFixed(2) : '?';
-        div.textContent = `${stop.stop_name} (${distKm} km)`;
-        div.onclick = () => selectStop(stop.stop_id);
-        topStopsDiv.appendChild(div);
-    });
+    if (topStopsDiv) {
+        topStopsDiv.innerHTML = '';
+        top5.forEach(stop => {
+            const div = document.createElement('div');
+            div.className = 'top-stop-item' + (selectedStopId === stop.stop_id ? ' selected' : '');
+            const distKm = stop.distance ? (stop.distance / 1000).toFixed(2) : '?';
+            div.textContent = `${stop.stop_name} (${distKm} km)`;
+            div.onclick = () => selectStop(stop.stop_id);
+            topStopsDiv.appendChild(div);
+        });
+    }
 
     // Render slider for rest
     const sliderDiv = document.getElementById('sliderStops');
-    sliderDiv.innerHTML = '';
-    rest.forEach(stop => {
-        const div = document.createElement('div');
-        div.className = 'slider-stop-item' + (selectedStopId === stop.stop_id ? ' selected' : '');
-        const distKm = stop.distance ? (stop.distance / 1000).toFixed(2) : '?';
-        div.textContent = `${stop.stop_name} (${distKm} km)`;
-        div.onclick = () => selectStop(stop.stop_id);
-        sliderDiv.appendChild(div);
-    });
+    if (sliderDiv) {
+        sliderDiv.innerHTML = '';
+        rest.forEach(stop => {
+            const div = document.createElement('div');
+            div.className = 'slider-stop-item' + (selectedStopId === stop.stop_id ? ' selected' : '');
+            const distKm = stop.distance ? (stop.distance / 1000).toFixed(2) : '?';
+            div.textContent = `${stop.stop_name} (${distKm} km)`;
+            div.onclick = () => selectStop(stop.stop_id);
+            sliderDiv.appendChild(div);
+        });
+    }
 
     // Update dropdown
     const stopSelect = document.getElementById('stopSelect');
-    stopSelect.innerHTML = '<option value="">Select a stop...</option>';
-    // Sort stopsToShow by distance ascending
-    const sortedStops = [...stopsToShow].sort((a, b) => (a.distance || 0) - (b.distance || 0));
-    sortedStops.forEach(stop => {
-        const option = document.createElement('option');
-        const distKm = stop.distance ? (stop.distance / 1000).toFixed(2) : '?';
-        option.value = stop.stop_id;
-        option.textContent = `${stop.stop_name} (${distKm} km)`;
-        if (stop.stop_id === selectedStopId) option.selected = true;
-        stopSelect.appendChild(option);
-    });
+    if (stopSelect) {
+        stopSelect.innerHTML = '<option value="">Select a stop...</option>';
+        // Sort stopsToShow by distance ascending
+        const sortedStops = [...stopsToShow].sort((a, b) => (a.distance || 0) - (b.distance || 0));
+        sortedStops.forEach(stop => {
+            const option = document.createElement('option');
+            const distKm = stop.distance ? (stop.distance / 1000).toFixed(2) : '?';
+            option.value = stop.stop_id;
+            option.textContent = `${stop.stop_name} (${distKm} km)`;
+            if (stop.stop_id === selectedStopId) option.selected = true;
+            stopSelect.appendChild(option);
+        });
+    }
 }
 
 // --- New: Select stop by id ---
 function selectStop(stopId) {
     selectedStopId = stopId;
     const stopSelect = document.getElementById('stopSelect');
-    stopSelect.value = stopId;
+    if (stopSelect) stopSelect.value = stopId;
     handleStopSelection();
     renderStopsUI();
 }
 
 // Ensure handleStopSelection is called on dropdown change
-const stopSelectElem = document.getElementById('stopSelect');
-if (stopSelectElem) {
-    stopSelectElem.addEventListener('change', handleStopSelection);
-}
+document.addEventListener('DOMContentLoaded', () => {
+    const stopSelectElem = document.getElementById('stopSelect');
+    if (stopSelectElem) {
+        stopSelectElem.addEventListener('change', handleStopSelection);
+    }
+});
 
 // --- Update loadStops to use new UI ---
 async function loadStops() {
-    const routeId = document.getElementById('routeSelect').value;
+    const routeSelectElem = document.getElementById('routeSelect');
+    if (!routeSelectElem) return;
+    
+    const routeId = routeSelectElem.value;
     if (!routeId) {
         stops = [];
         selectedRoute = null;
@@ -199,7 +253,7 @@ async function loadStops() {
 function handleStopSelection() {
     // Always show manual input box
     const manualInput = document.getElementById('manualStopInput');
-    manualInput.classList.remove('hidden');
+    if (manualInput) manualInput.classList.remove('hidden');
 }
 
 // Update location display
@@ -207,42 +261,229 @@ function updateLocationDisplay() {
     const locationDisplay = document.getElementById('current-location');
     if (locationDisplay && currentPosition) {
         locationDisplay.innerHTML = `<span class='current-location-icon'>📍</span> <b>${currentPosition.lat.toFixed(8)}, ${currentPosition.lon.toFixed(8)}</b>`;
+        
+        // Add accuracy information if available
+        if (locationAccuracy) {
+            locationDisplay.innerHTML += ` <small>(±${locationAccuracy.toFixed(1)}m)</small>`;
+        }
     }
 }
 
-// --- Update location tracking to refresh stops UI ---
-function startLocationTracking() {
-    const options = {
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 3000
-    };
-    locationWatchId = navigator.geolocation.watchPosition(
+// ---- MAJOR OPTIMIZATION: Improved Location Tracking ----
+
+// Initialize location tracking with a smarter approach
+function initLocationTracking() {
+    // Get immediate location once with high accuracy
+    getOneTimeLocation();
+    
+    // Then start adaptive tracking that adjusts based on movement and battery
+    startAdaptiveLocationTracking();
+    
+    // Start UI update interval - separate from location fetching
+    startUIUpdateInterval();
+}
+
+// Get high-precision location once (for initial position)
+function getOneTimeLocation() {
+    showModal('Getting your location...', 'spinner');
+    
+    // Use getCurrentPosition with high accuracy for initial position
+    navigator.geolocation.getCurrentPosition(
         position => {
             lastKnownPosition = {
                 lat: position.coords.latitude,
+                lon: position.coords.longitude,
+                timestamp: position.timestamp
+            };
+            locationAccuracy = position.coords.accuracy;
+            
+            // Update current position for UI
+            currentPosition = { 
+                lat: position.coords.latitude,
                 lon: position.coords.longitude
             };
-            // Send location update to backend every time we get a new position
+            
+            // Update UI
+            updateLocationDisplay();
+            hideModal();
+            
+            // Send to backend
             sendLocationToBackend(position.coords.latitude, position.coords.longitude);
+            
+            // Render stops if needed
+            if (selectedRoute && stops.length > 0) {
+                renderStopsUI();
+            }
         },
         error => {
-            console.error('Error getting location:', error);
-            showError('Error getting location. Please ensure location services are enabled.');
+            console.error('Error getting initial location:', error);
+            showModal('Could not get precise location. Please enable location services.', 'warning');
         },
+        { 
+            enableHighAccuracy: true, 
+            timeout: 10000, 
+            maximumAge: 5000
+        }
+    );
+}
+
+// Start adaptive location tracking that adjusts based on motion, battery, etc.
+function startAdaptiveLocationTracking() {
+    // Clear any existing watch
+    if (locationWatchId !== null) {
+        navigator.geolocation.clearWatch(locationWatchId);
+    }
+    
+    // Calculate the appropriate tracking interval
+    const trackingInterval = calculateTrackingInterval();
+    
+    // Set options based on our current state
+    const options = {
+        enableHighAccuracy: !lowPowerMode, // Lower accuracy in low power mode
+        timeout: 10000,
+        maximumAge: trackingInterval - 1000 // Slightly less than our interval
+    };
+    
+    // Start watching position with adaptive settings
+    locationWatchId = navigator.geolocation.watchPosition(
+        handlePositionUpdate,
+        handlePositionError,
         options
     );
-    // Update UI every 2 seconds
+}
+
+// Handle position updates from the geolocation API
+function handlePositionUpdate(position) {
+    const newPosition = {
+        lat: position.coords.latitude,
+        lon: position.coords.longitude,
+        timestamp: position.timestamp
+    };
+    
+    // Update accuracy information
+    locationAccuracy = position.coords.accuracy;
+    
+    // Check if we've moved significantly
+    if (lastKnownPosition) {
+        const distance = calculateDistance(
+            lastKnownPosition.lat, 
+            lastKnownPosition.lon,
+            newPosition.lat, 
+            newPosition.lon
+        );
+        
+        // Update movement state if we moved more than threshold
+        if (distance > movementThreshold) {
+            isMoving = true;
+            lastMovementCheck = Date.now();
+        } else if (Date.now() - lastMovementCheck > 30000) {
+            // If no significant movement for 30 seconds, consider stationary
+            isMoving = false;
+        }
+        
+        // If movement state changed, restart tracking with new interval
+        if ((isMoving && trackingIsStationary()) || (!isMoving && !trackingIsStationary())) {
+            restartLocationTracking();
+        }
+    }
+    
+    // Update our location state
+    lastKnownPosition = newPosition;
+    currentPosition = { 
+        lat: newPosition.lat, 
+        lon: newPosition.lon 
+    };
+    
+    // Send to backend if online and it's a significant update
+    if (isOnline && shouldSendToBackend(newPosition)) {
+        sendLocationToBackend(newPosition.lat, newPosition.lon);
+    }
+}
+
+// Decide if we should send this position update to the backend
+function shouldSendToBackend(position) {
+    // Always send if we don't have a last sent position
+    if (!lastPositionTimestamp) return true;
+    
+    // Time-based throttling depending on movement
+    const timeSinceLastSent = position.timestamp - lastPositionTimestamp;
+    const minSendInterval = isMoving ? 5000 : 30000; // 5s moving, 30s stationary
+    
+    return timeSinceLastSent >= minSendInterval;
+}
+
+// Handle geolocation errors
+function handlePositionError(error) {
+    console.error('Location tracking error:', error);
+    
+    // Only show errors to user for permission issues
+    if (error.code === error.PERMISSION_DENIED) {
+        showError('Location permission denied. Please enable location services.');
+    }
+    
+    // For timeout or position unavailable, retry with lower accuracy
+    if (error.code === error.TIMEOUT || error.code === error.POSITION_UNAVAILABLE) {
+        restartLocationTracking(true);
+    }
+}
+
+// Calculate optimal tracking interval based on current state
+function calculateTrackingInterval() {
+    if (lowPowerMode) {
+        return LOCATION_INTERVALS.LOW_BATTERY;
+    }
+    return isMoving ? LOCATION_INTERVALS.MOVING : LOCATION_INTERVALS.STATIONARY;
+}
+
+// Check if tracking is in stationary mode
+function trackingIsStationary() {
+    return calculateTrackingInterval() === LOCATION_INTERVALS.STATIONARY;
+}
+
+// Restart location tracking with potentially new settings
+function restartLocationTracking(lowerAccuracy = false) {
+    if (locationWatchId !== null) {
+        navigator.geolocation.clearWatch(locationWatchId);
+        locationWatchId = null;
+    }
+    
+    // Short delay before restarting
+    setTimeout(() => {
+        // If we had trouble getting location, try with lower accuracy
+        if (lowerAccuracy) {
+            const options = { 
+                enableHighAccuracy: false,
+                timeout: 15000,
+                maximumAge: 60000
+            };
+            
+            locationWatchId = navigator.geolocation.watchPosition(
+                handlePositionUpdate,
+                error => console.error('Fallback location error:', error),
+                options
+            );
+        } else {
+            // Otherwise restart normal adaptive tracking
+            startAdaptiveLocationTracking();
+        }
+    }, 500);
+}
+
+// Start interval for UI updates, separate from location fetching
+function startUIUpdateInterval() {
     if (uiUpdateInterval) clearInterval(uiUpdateInterval);
+    
     uiUpdateInterval = setInterval(() => {
-        if (lastKnownPosition) {
-            currentPosition = { ...lastKnownPosition };
+        // Only update if we have a position
+        if (currentPosition) {
             updateLocationDisplay();
+            
+            // Update stops UI if relevant
             if (selectedRoute && stops.length > 0) {
                 renderStopsUI();
             }
         }
-    }, locationUpdateInterval);
+    }, LOCATION_INTERVALS.UI_UPDATE);
 }
 
 // --- Search input event ---
@@ -281,29 +522,6 @@ function showModal(message, type = '') {
     if (modal) modal.classList.remove('hidden');
 }
 
-// --- Show spinner and get initial location fast on home load ---
-document.addEventListener('DOMContentLoaded', () => {
-    showModal('Getting your location...', 'spinner');
-    navigator.geolocation.getCurrentPosition(
-        position => {
-            lastKnownPosition = {
-                lat: position.coords.latitude,
-                lon: position.coords.longitude
-            };
-            currentPosition = { ...lastKnownPosition };
-            updateLocationDisplay();
-            hideModal();
-            if (selectedRoute && stops.length > 0) {
-                renderStopsUI();
-            }
-        },
-        error => {
-            showModal('Could not get your location. Please enable location services.', 'warning');
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
-    );
-});
-
 function hideModal() {
     const modal = document.getElementById('statusModal');
     if (modal) modal.classList.add('hidden');
@@ -318,29 +536,39 @@ function showManualConfirmModal(stopName, lat, lon, onSubmit) {
     if (text) text.innerHTML = `Record for <b>${stopName}</b> at <br>Lat: <b>${lat.toFixed(6)}</b><br>Lon: <b>${lon.toFixed(6)}</b>?`;
     if (modal) modal.classList.remove('hidden');
     // Remove previous listeners
-    submitBtn.onclick = null;
-    cancelBtn.onclick = null;
-    submitBtn.onclick = () => {
-        modal.classList.add('hidden');
-        onSubmit();
-    };
-    cancelBtn.onclick = () => {
-        modal.classList.add('hidden');
-    };
+    if (submitBtn) {
+        submitBtn.onclick = null;
+        submitBtn.onclick = () => {
+            modal.classList.add('hidden');
+            onSubmit();
+        };
+    }
+    if (cancelBtn) {
+        cancelBtn.onclick = null;
+        cancelBtn.onclick = () => {
+            modal.classList.add('hidden');
+        };
+    }
 }
 
-// --- Update startRecording to use manual confirm modal and faster geolocation ---
+// --- Optimized recording with smart location selection ---
 async function startRecording() {
     if (!selectedRoute) {
         showModal('Please select a route', 'warning');
         return;
     }
+    
     const stopSelect = document.getElementById('stopSelect');
     const manualInput = document.getElementById('manualStopInput');
     let stopToRecord = null;
     let stopName = '';
     let stopId = '';
-    if (stopSelect.value === '') {
+    
+    if (!stopSelect || stopSelect.value === '') {
+        if (!manualInput) {
+            showModal('UI elements not found', 'warning');
+            return;
+        }
         stopName = manualInput.value.trim();
         if (!stopName) {
             showModal('Please enter a stop name.');
@@ -353,23 +581,59 @@ async function startRecording() {
         stopName = stopToRecord ? stopToRecord.stop_name : '';
         stopId = stopToRecord ? stopToRecord.stop_id : '';
     }
-    // Always fetch latest location and show confirmation popup
-    showModal('Getting location...');
-    navigator.geolocation.getCurrentPosition(position => {
-        hideModal();
-        const freshLat = position.coords.latitude;
-        const freshLon = position.coords.longitude;
-        showManualConfirmModal(stopName, freshLat, freshLon, () => {
-            recordStopWithFreshLocation(stopName, stopId, freshLat, freshLon);
+    
+    // Optimization: Check if our current position is recent and accurate enough
+    const now = Date.now();
+    const lastPositionAge = lastKnownPosition ? (now - lastKnownPosition.timestamp) : Infinity;
+    
+    // If we have a recent (< 5 seconds old) and accurate position (< 20m), use it
+    if (lastKnownPosition && lastPositionAge < 5000 && locationAccuracy < 20) {
+        showManualConfirmModal(stopName, lastKnownPosition.lat, lastKnownPosition.lon, () => {
+            recordStopWithLocation(stopName, stopId, lastKnownPosition.lat, lastKnownPosition.lon);
         });
-    }, error => {
-        showModal('Could not get precise location. Please try again.');
-        setTimeout(hideModal, 2000);
-    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 });
+    } else {
+        // Otherwise, get a fresh high-accuracy position
+        showModal('Getting precise location...', 'spinner');
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                hideModal();
+                const freshLat = position.coords.latitude;
+                const freshLon = position.coords.longitude;
+                
+                // Update our tracking state with this new position too
+                lastKnownPosition = {
+                    lat: freshLat,
+                    lon: freshLon,
+                    timestamp: position.timestamp
+                };
+                currentPosition = { lat: freshLat, lon: freshLon };
+                locationAccuracy = position.coords.accuracy;
+                
+                showManualConfirmModal(stopName, freshLat, freshLon, () => {
+                    recordStopWithLocation(stopName, stopId, freshLat, freshLon);
+                });
+            },
+            error => {
+                console.error('Error getting fresh location:', error);
+                showModal('Could not get precise location. Please try again.');
+                setTimeout(hideModal, 2000);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 15000,
+                maximumAge: 4000
+            }
+        );
+    }
 }
 
-function recordStopWithFreshLocation(stopName, stopId, lat, lon) {
+// Record stop with provided location
+function recordStopWithLocation(stopName, stopId, lat, lon) {
     showModal('Recording stop...');
+    
+    // Mark this as the last time we sent data to backend
+    lastPositionTimestamp = Date.now();
+    
     fetch('/api/record', {
         method: 'POST',
         headers: {
@@ -381,6 +645,7 @@ function recordStopWithFreshLocation(stopName, stopId, lat, lon) {
             stop_name: stopName,
             lat: lat,
             lon: lon,
+            accuracy: locationAccuracy || null,
             timestamp: new Date().toISOString()
         })
     })
@@ -390,8 +655,10 @@ function recordStopWithFreshLocation(stopName, stopId, lat, lon) {
         showModal('Stop recorded successfully!');
         setTimeout(() => {
             hideModal();
-            document.getElementById('confirmationPanel').classList.add('hidden');
-            document.getElementById('manualStopInput').classList.add('hidden');
+            const confirmPanel = document.getElementById('confirmationPanel');
+            const manualInput = document.getElementById('manualStopInput');
+            if (confirmPanel) confirmPanel.classList.add('hidden');
+            if (manualInput) manualInput.classList.add('hidden');
         }, 1500);
     })
     .catch(error => {
@@ -442,33 +709,70 @@ function logout() {
     window.location.href = '/logout';
 }
 
-// Initialize the application when the page loads
-document.addEventListener('DOMContentLoaded', init);
-
-// Clean up when the page is unloaded
-window.addEventListener('beforeunload', () => {
-    if (locationWatchId) {
-        navigator.geolocation.clearWatch(locationWatchId);
-    }
-});
-
+// Send location update to backend with debouncing & throttling
 function sendLocationToBackend(lat, lon) {
-    let stop_id = selectedStopId || null;
-    let stop_name = null;
-    if (stop_id) {
-        const stopObj = stops.find(s => s.stop_id === stop_id);
-        stop_name = stopObj ? stopObj.stop_name : null;
-    }
+    // Only send if we're online
+    if (!isOnline) return;
+    
+    // Update timestamp of last sent position
+    lastPositionTimestamp = Date.now();
+    
     fetch('/api/location-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             lat,
             lon,
+            accuracy: locationAccuracy || null,
             timestamp: new Date().toISOString(),
-            route_id: selectedRoute
+            route_id: selectedRoute,
+            stop_id: selectedStopId || null,
+            is_moving: isMoving
         })
     }).catch(err => {
         console.error('Failed to send location update:', err);
     });
+}
+
+// Initialize the application when the page loads
+document.addEventListener('DOMContentLoaded', init);
+
+// Clean up when the page is unloaded or hidden
+window.addEventListener('beforeunload', cleanUp);
+document.addEventListener('visibilitychange', handleVisibilityChange);
+
+// Handle tab/app visibility changes to save battery
+function handleVisibilityChange() {
+    if (document.visibilityState === 'hidden') {
+        // Reduce tracking when tab is not visible
+        if (locationWatchId !== null) {
+            navigator.geolocation.clearWatch(locationWatchId);
+            locationWatchId = null;
+        }
+        if (uiUpdateInterval !== null) {
+            clearInterval(uiUpdateInterval);
+            uiUpdateInterval = null;
+        }
+    } else if (document.visibilityState === 'visible') {
+        // Resume tracking when tab becomes visible again
+        if (!locationWatchId) {
+            startAdaptiveLocationTracking();
+        }
+        if (!uiUpdateInterval) {
+            startUIUpdateInterval();
+        }
+    }
+}
+
+// Clean up resources
+function cleanUp() {
+    if (locationWatchId !== null) {
+        navigator.geolocation.clearWatch(locationWatchId);
+        locationWatchId = null;
+    }
+    
+    if (uiUpdateInterval !== null) {
+        clearInterval(uiUpdateInterval);
+        uiUpdateInterval = null;
+    }
 }
