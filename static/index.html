@@ -24,7 +24,14 @@
 
             <div class="route-selection">
                 <h2>Select Route</h2>
-                <select id="routeSelect" onchange="loadStops()">
+                <div id="customRouteDropdown" class="custom-dropdown">
+                    <div class="dropdown-selected" id="dropdownSelected">Select a route...</div>
+                    <div class="dropdown-list-container" id="dropdownListContainer">
+                        <input type="text" id="dropdownSearchInput" class="dropdown-search-input" placeholder="Search route...">
+                        <div class="dropdown-list" id="dropdownList"></div>
+                    </div>
+                </div>
+                <select id="routeSelect" onchange="loadStops()" style="display:none;">
                     <option value="">Select a route...</option>
                 </select>
             </div>
