@@ -28,6 +28,9 @@ const LOCATION_INTERVALS = {
     UI_UPDATE: 3000         // 3 seconds UI refresh
 };
 
+// --- Custom Searchable Dropdown for Routes ---
+let allRoutes = [];
+
 // Initialize the application
 async function init() {
     // Add online/offline event listeners
@@ -139,6 +142,18 @@ async function loadRoutes() {
             option.textContent = `${route.route_name} | (TOWARDS ${route.route_end_point || ''})`;
             select.appendChild(option);
         });
+        // After loading, get all routes from the select
+        const routesFromSelect = Array.from(select.options)
+            .filter(opt => opt.value)
+            .map(opt => {
+                const [name, towards] = opt.textContent.split('| (TOWARDS ');
+                return {
+                    route_code: opt.value,
+                    route_name: name ? name.trim() : '',
+                    route_end_point: towards ? towards.replace(')', '').trim() : ''
+                };
+            });
+        renderCustomRouteDropdown(routesFromSelect);
     } catch (error) {
         console.error('Error loading routes:', error);
         showError('Failed to load routes. Please check your connection.');
@@ -781,3 +796,118 @@ function cleanUp() {
         uiUpdateInterval = null;
     }
 }
+
+// --- Route search filter ---
+document.addEventListener('DOMContentLoaded', () => {
+    const routeSearchInput = document.getElementById('routeSearchInput');
+    const routeSelect = document.getElementById('routeSelect');
+    if (routeSearchInput && routeSelect) {
+        // Store all options for filtering
+        let allOptions = [];
+        // Wait for options to be loaded
+        const observer = new MutationObserver(() => {
+            allOptions = Array.from(routeSelect.options).map(opt => ({
+                value: opt.value,
+                text: opt.textContent
+            }));
+        });
+        observer.observe(routeSelect, { childList: true });
+        // Filter on input
+        routeSearchInput.addEventListener('input', function() {
+            const search = this.value.trim().toLowerCase();
+            routeSelect.innerHTML = '';
+            let filtered = allOptions.filter(opt =>
+                opt.text.toLowerCase().includes(search) ||
+                opt.value.toLowerCase().includes(search)
+            );
+            if (filtered.length === 0) {
+                filtered = [{ value: '', text: 'No routes found...' }];
+            }
+            filtered.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.value;
+                option.textContent = opt.text;
+                routeSelect.appendChild(option);
+            });
+        });
+    }
+});
+
+// --- Custom Searchable Dropdown for Routes ---
+function renderCustomRouteDropdown(routes) {
+    allRoutes = routes;
+    const dropdown = document.getElementById('customRouteDropdown');
+    const selected = document.getElementById('dropdownSelected');
+    const listContainer = document.getElementById('dropdownListContainer');
+    const searchInput = document.getElementById('dropdownSearchInput');
+    const list = document.getElementById('dropdownList');
+    const nativeSelect = document.getElementById('routeSelect');
+
+    // Helper to render options
+    function renderOptions(filter = '') {
+        list.innerHTML = '';
+        const filtered = routes.filter(route =>
+            route.route_name.toLowerCase().includes(filter)
+        );
+        if (filtered.length === 0) {
+            const noOpt = document.createElement('div');
+            noOpt.className = 'dropdown-option';
+            noOpt.textContent = 'No routes found...';
+            list.appendChild(noOpt);
+            return;
+        }
+        filtered.forEach(route => {
+            const opt = document.createElement('div');
+            opt.className = 'dropdown-option';
+            opt.textContent = `${route.route_name} | (TOWARDS ${route.route_end_point || ''})`;
+            opt.dataset.value = route.route_code;
+            opt.onclick = () => {
+                selected.textContent = opt.textContent;
+                dropdown.classList.remove('open');
+                // Set the selected route and load stops
+                nativeSelect.value = route.route_code;
+                loadStops();
+            };
+            list.appendChild(opt);
+        });
+    }
+
+    // Open/close logic
+    selected.onclick = () => {
+        dropdown.classList.toggle('open');
+        searchInput.value = '';
+        renderOptions('');
+        if (dropdown.classList.contains('open')) {
+            setTimeout(() => searchInput.focus(), 10);
+        }
+    };
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target)) {
+            dropdown.classList.remove('open');
+        }
+    });
+    // Filter on input
+    searchInput.oninput = () => {
+        renderOptions(searchInput.value.trim().toLowerCase());
+    };
+}
+
+// Patch loadRoutes to also update the custom dropdown
+const originalLoadRoutes = loadRoutes;
+window.loadRoutes = async function() {
+    await originalLoadRoutes.apply(this, arguments);
+    // After loading, get all routes from the select
+    const select = document.getElementById('routeSelect');
+    const routes = Array.from(select.options)
+        .filter(opt => opt.value)
+        .map(opt => {
+            const [name, towards] = opt.textContent.split('| (TOWARDS ');
+            return {
+                route_code: opt.value,
+                route_name: name ? name.trim() : '',
+                route_end_point: towards ? towards.replace(')', '').trim() : ''
+            };
+        });
+    renderCustomRouteDropdown(routes);
+};
