@@ -1,0 +1,30 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="12dp"
+    android:gravity="center_vertical">
+
+    <TextView
+        android:id="@+id/stopNameText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:minWidth="0dp"
+        android:text="Stop Name"
+        android:textSize="16sp"
+        android:gravity="start"
+        android:singleLine="false"
+        android:maxLines="2"
+        android:textStyle="bold"/>
+
+    <TextView
+        android:id="@+id/stopDistanceText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0.00 km"
+        android:textSize="14sp"
+        android:textColor="@color/primary"
+        android:layout_gravity="end"
+        android:layout_marginStart="32dp"/>
+</LinearLayout> 
