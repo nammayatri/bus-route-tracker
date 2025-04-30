@@ -1,0 +1,36 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <EditText
+        android:id="@+id/stopSearchEdit"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Search stop..."
+        android:inputType="text" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/stopRecyclerViewDialog"
+        android:layout_width="match_parent"
+        android:layout_height="300dp"
+        android:layout_marginTop="12dp"/>
+
+    <EditText
+        android:id="@+id/manualStopEdit"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter stop name if not found"
+        android:inputType="text"
+        android:layout_marginTop="16dp"/>
+
+    <!-- Top 2 nearest stops as chips/buttons at the bottom -->
+    <LinearLayout
+        android:id="@+id/dialogTopStopsLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="16dp"
+        android:gravity="start"/>
+</LinearLayout> 
