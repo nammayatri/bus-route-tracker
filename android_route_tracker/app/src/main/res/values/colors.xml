@@ -1,9 +1,5 @@
 <resources>
-    <color name="background">#FAFAFA</color>
     <color name="primary">#1976D2</color>
-    <color name="error">#D32F2F</color>
-    <color name="white">#FFFFFF</color>
-    <color name="success">#4CAF50</color>
     <color name="highlight">#FFF9C4</color>
     <color name="black">#000000</color>
 </resources> 

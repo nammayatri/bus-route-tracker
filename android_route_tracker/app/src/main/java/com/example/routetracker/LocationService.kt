@@ -27,7 +27,6 @@ class LocationService : Service() {
     private lateinit var locationCallback: LocationCallback
     private var updateInterval: Long = 3000L // Default to 3 seconds
     private var lastSentLocation: Location? = null
-    private val DISTANCE_THRESHOLD_METERS = 10.0
 
     override fun onCreate() {
         super.onCreate()
@@ -114,7 +113,7 @@ class LocationService : Service() {
 
     private fun shouldSendLocation(newLocation: Location): Boolean {
         val last = lastSentLocation
-        return last == null || newLocation.distanceTo(last) > Constants.LOCATION_SERVICE_DISTANCE_THRESHOLD_METERS
+        return last == null || newLocation.distanceTo(last) > Constants.DISTANCE_THRESHOLD_METERS
     }
 
     private fun startLocationUpdates() {
