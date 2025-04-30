@@ -86,6 +86,8 @@ def load_users():
     except FileNotFoundError:
         return {}
 
+APP_CONFIG = load_users()
+
 @app.route('/')
 def home():
     return redirect(url_for('login'))
@@ -94,21 +96,14 @@ def home():
 def login():
     if request.method == 'GET':
         return render_template('login.html')
-    
     data = request.get_json()
     password = data.get('password')
-    users = load_users()
-    
-    for user_id, user_data in users.items():
-        if user_data['password'] == password:
-            session.permanent = True  # Make session permanent until logout
-            session['user_id'] = user_id
-            session['city'] = user_data.get('city')
-            session['access'] = user_data.get('access')
-            session['vehicle_type'] = user_data.get('vehicle_type')
-            return jsonify({'success': True})
-    
-    return jsonify({'error': 'Invalid credentials'}), 401
+    if APP_CONFIG.get(password):
+        session.permanent = True  # Make session permanent until logout
+        session['user_id'] = APP_CONFIG.get(password)
+        return jsonify({'success': True})
+    else:   
+        return jsonify({'error': 'Invalid credentials'}), 401
 
 @app.route('/logout')
 def logout():
