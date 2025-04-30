@@ -1,0 +1,4 @@
+assets/
+.env
+.gitignore
+.dockerignore
