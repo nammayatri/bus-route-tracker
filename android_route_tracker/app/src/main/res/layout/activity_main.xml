@@ -5,7 +5,6 @@
     android:layout_height="match_parent">
 
     <ImageView
-        android:id="@+id/backgroundImage"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:src="@drawable/bg"
@@ -47,7 +46,6 @@
             </FrameLayout>
 
             <LinearLayout
-                android:id="@+id/statusLayout"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
@@ -94,7 +92,6 @@
             android:layout_marginTop="36dp">
 
             <ImageView
-                android:id="@+id/currentLocationPin"
                 android:layout_width="28dp"
                 android:layout_height="28dp"
                 android:src="@drawable/ic_pin"

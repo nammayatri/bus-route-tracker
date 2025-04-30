@@ -15,10 +15,8 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
 import android.widget.ArrayAdapter
-import android.widget.AutoCompleteTextView
 import android.widget.TextView
 import android.widget.Toast
-import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.google.android.material.button.MaterialButton
@@ -64,7 +62,6 @@ class MainActivity : AppCompatActivity() {
     private var isLowBattery = false
     private var selectedRouteId: String? = null
     private var lastKnownLocation: Location? = null
-    private var selectedRouteIndex: Int = -1
     private var selectedStop: StopDisplayItem? = null
     private var lastSentLocation: Location? = null
 
@@ -268,7 +265,6 @@ class MainActivity : AppCompatActivity() {
                     runOnUiThread {
                         val adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_dropdown_item_1line, routeNames)
                         routeField.text = routeNames[0]
-                        selectedRouteIndex = -1
                     }
                 } else {
                     runOnUiThread {
