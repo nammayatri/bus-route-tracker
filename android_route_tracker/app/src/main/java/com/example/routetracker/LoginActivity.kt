@@ -14,6 +14,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import org.json.JSONObject
 import java.io.IOException
 import com.example.routetracker.Constants
+import com.example.routetracker.PermissionHelper
+import com.example.routetracker.ToastHelper
 
 class LoginActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,7 +30,7 @@ class LoginActivity : AppCompatActivity() {
             if (password.isNotEmpty()) {
                 login(password)
             } else {
-                Toast.makeText(this, "Enter password", Toast.LENGTH_SHORT).show()
+                ToastHelper.show(this, "Enter password")
             }
         }
 
@@ -37,35 +39,8 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun checkLocationPermissions() {
-        val permissionsNeeded = mutableListOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            permissionsNeeded.add(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-        }
-        if (android.os.Build.VERSION.SDK_INT >= 34) { // Android 14+
-            permissionsNeeded.add(android.Manifest.permission.FOREGROUND_SERVICE_LOCATION)
-        }
-        val permissionsToRequest = permissionsNeeded.filter {
-            ActivityCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-        if (permissionsToRequest.isNotEmpty()) {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, android.Manifest.permission.ACCESS_FINE_LOCATION)) {
-                // Show rationale dialog
-                AlertDialog.Builder(this)
-                    .setTitle("Location Permission Needed")
-                    .setMessage("This app needs location permission to track your location. Please grant the permission to continue.")
-                    .setPositiveButton("OK") { _, _ ->
-                        ActivityCompat.requestPermissions(this, permissionsToRequest.toTypedArray(), 1002)
-                    }
-                    .setNegativeButton("Cancel") { _, _ ->
-                        // Optionally, guide the user to settings
-                        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                        intent.data = android.net.Uri.fromParts("package", packageName, null)
-                        startActivity(intent)
-                    }
-                    .show()
-            } else {
-                ActivityCompat.requestPermissions(this, permissionsToRequest.toTypedArray(), 1002)
-            }
+        if (!PermissionHelper.hasAllLocationPermissions(this)) {
+            PermissionHelper.requestLocationPermissions(this, 1002)
         }
     }
 

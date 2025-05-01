@@ -17,6 +17,7 @@ import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.*
+import com.example.routetracker.NetworkHelper
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import org.json.JSONObject
@@ -150,19 +151,14 @@ class LocationService : Service() {
         }
         val url = "${Constants.BASE_URL}/routeTrackerApi/location-update"
         val body = RequestBody.create("application/json".toMediaType(), json.toString())
-        val request = Request.Builder()
-            .url(url)
-            .post(body)
-            .addHeader("Cookie", sessionCookie)
-            .build()
-        OkHttpClient().newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-            }
-            override fun onResponse(call: Call, response: Response) {
-                if (response.code == 401) {
-                }
-            }
-        })
+        NetworkHelper.authenticatedRequest(
+            url,
+            "POST",
+            sessionCookie,
+            body,
+            onSuccess = {},
+            onError = { /* Optionally log error */ }
+        )
     }
 
     override fun onDestroy() {

@@ -32,6 +32,11 @@ import android.widget.EditText
 import android.app.AlertDialog
 import android.widget.LinearLayout
 import com.example.routetracker.Constants
+import com.example.routetracker.PermissionHelper
+import com.example.routetracker.ToastHelper
+import com.example.routetracker.SessionHelper
+import com.example.routetracker.LocationHelper
+import com.example.routetracker.NetworkHelper
 
 data class StopDisplayItem(
     val stopName: String,
@@ -97,56 +102,15 @@ class MainActivity : AppCompatActivity() {
             progressDialog.setMessage("Fetching current location...")
             progressDialog.setCancelable(false)
             progressDialog.show()
-
-            val fusedLocationClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(this)
-            var usedLocation = false
-            val locationRequest = com.google.android.gms.location.LocationRequest.create().apply {
-                priority = com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY
-                numUpdates = 1
-                interval = 0
-            }
-            val locationCallback = object : com.google.android.gms.location.LocationCallback() {
-                override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
-                    if (!usedLocation) {
-                        usedLocation = true
-                        progressDialog.dismiss()
-                        val freshLocation = result.lastLocation
-                        if (freshLocation != null) {
-                            lastKnownLocation = freshLocation
-                            confirmAndRecordStop()
-                        } else {
-                            // Fallback to last known
-                            fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
-                                if (lastLoc != null) {
-                                    lastKnownLocation = lastLoc
-                                    confirmAndRecordStop()
-                                } else {
-                                    Toast.makeText(this@MainActivity, "Could not fetch current location. Please try again.", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
-                        fusedLocationClient.removeLocationUpdates(this)
-                    }
+            LocationHelper.fetchFreshOrLastLocation(this) { location ->
+                progressDialog.dismiss()
+                if (location != null) {
+                    lastKnownLocation = location
+                    confirmAndRecordStop()
+                } else {
+                    ToastHelper.show(this, "Could not fetch current location. Please try again.")
                 }
             }
-            // Start fresh location request
-            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
-            // Fallback after 3 seconds if no fresh location
-            android.os.Handler(mainLooper).postDelayed({
-                if (!usedLocation) {
-                    usedLocation = true
-                    progressDialog.dismiss()
-                    fusedLocationClient.removeLocationUpdates(locationCallback)
-                    fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
-                        if (lastLoc != null) {
-                            lastKnownLocation = lastLoc
-                            confirmAndRecordStop()
-                        } else {
-                            Toast.makeText(this@MainActivity, "Could not fetch current location. Please try again.", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-            }, 3000)
         }
 
         stopField.setOnClickListener { showStopPickerDialog() }
@@ -157,35 +121,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkAndRequestPermissions() {
-        val permissionsNeeded = mutableListOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            permissionsNeeded.add(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-        }
-        if (android.os.Build.VERSION.SDK_INT >= 34) { // Android 14+
-            permissionsNeeded.add(android.Manifest.permission.FOREGROUND_SERVICE_LOCATION)
-        }
-        val permissionsToRequest = permissionsNeeded.filter {
-            ActivityCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
-        if (permissionsToRequest.isNotEmpty()) {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, android.Manifest.permission.ACCESS_FINE_LOCATION)) {
-                // Show rationale dialog
-                androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setTitle("Location Permission Needed")
-                    .setMessage("This app needs location permission to track your location. Please grant the permission to continue.")
-                    .setPositiveButton("OK") { _, _ ->
-                        ActivityCompat.requestPermissions(this, permissionsToRequest.toTypedArray(), 1002)
-                    }
-                    .setNegativeButton("Cancel") { _, _ ->
-                        // Optionally, guide the user to settings
-                        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                        intent.data = android.net.Uri.fromParts("package", packageName, null)
-                        startActivity(intent)
-                    }
-                    .show()
-            } else {
-                ActivityCompat.requestPermissions(this, permissionsToRequest.toTypedArray(), 1002)
-            }
+        if (!PermissionHelper.hasAllLocationPermissions(this)) {
+            PermissionHelper.requestLocationPermissions(this, 1002)
         } else {
             startLocationTracking()
         }
@@ -268,102 +205,62 @@ class MainActivity : AppCompatActivity() {
     private fun fetchRoutes() {
         val sessionCookie = getSessionCookie()
         if (sessionCookie == null) {
-            Toast.makeText(this, "Session expired. Please login again.", Toast.LENGTH_SHORT).show()
-            startActivity(Intent(this, LoginActivity::class.java))
-            finish()
+            SessionHelper.handleSessionExpired(this)
             return
         }
-
         val url = "${Constants.BASE_URL}/routeTrackerApi/routes"
-        val request = Request.Builder()
-            .url(url)
-            .addHeader("Cookie", sessionCookie)
-            .build()
-
-        OkHttpClient().newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread { 
-                    Toast.makeText(this@MainActivity, "Failed to load routes: ${e.message}", Toast.LENGTH_SHORT).show()
+        NetworkHelper.authenticatedRequest(
+            url,
+            "GET",
+            sessionCookie,
+            onSuccess = { responseBody ->
+                val arr = JSONArray(responseBody)
+                routes = (0 until arr.length()).map { arr.getJSONObject(it) }
+                routes = routes.sortedWith(compareBy { it.optString("route_code", "") })
+                val routeNames = mutableListOf("Select Route...")
+                routeNames.addAll(routes.map {
+                    val code = it.optString("route_code", "")
+                    val start = it.optString("route_start_point", "")
+                    val end = it.optString("route_end_point", "")
+                    "$code | $start -> $end"
+                })
+                runOnUiThread {
+                    val adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_dropdown_item_1line, routeNames)
+                    routeField.text = routeNames[0]
+                }
+            },
+            onError = { e ->
+                runOnUiThread {
+                    ToastHelper.show(this, "Failed to load routes: ${e.message}")
                 }
             }
-            override fun onResponse(call: Call, response: Response) {
-                if (response.code == 401) {
-                    runOnUiThread {
-                        Toast.makeText(this@MainActivity, "Session expired. Please login again.", Toast.LENGTH_SHORT).show()
-                        startActivity(Intent(this@MainActivity, LoginActivity::class.java))
-                        finish()
-                    }
-                    return
-                }
-                if (response.isSuccessful) {
-                    val responseBody = response.body
-                    val arr = JSONArray(responseBody?.string())
-                    routes = (0 until arr.length()).map { arr.getJSONObject(it) }
-                    routes = routes.sortedWith(compareBy { it.optString("route_code", "") })
-                    val routeNames = mutableListOf("Select Route...")
-                    routeNames.addAll(routes.map {
-                        val code = it.optString("route_code", "")
-                        val start = it.optString("route_start_point", "")
-                        val end = it.optString("route_end_point", "")
-                        "$code | $start -> $end"
-                    })
-                    runOnUiThread {
-                        val adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_dropdown_item_1line, routeNames)
-                        routeField.text = routeNames[0]
-                    }
-                } else {
-                    runOnUiThread {
-                        Toast.makeText(this@MainActivity, "Failed to load routes: ${response.code}", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-        })
+        )
     }
 
     private fun fetchStops(routeId: String) {
         val sessionCookie = getSessionCookie()
         if (sessionCookie == null) {
-            Toast.makeText(this, "Session expired. Please login again.", Toast.LENGTH_SHORT).show()
-            startActivity(Intent(this, LoginActivity::class.java))
-            finish()
+            SessionHelper.handleSessionExpired(this)
             return
         }
-
         val url = "${Constants.BASE_URL}/routeTrackerApi/stops?route_id=$routeId"
-        val request = Request.Builder()
-            .url(url)
-            .addHeader("Cookie", sessionCookie)
-            .build()
-
-        OkHttpClient().newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread { 
-                    Toast.makeText(this@MainActivity, "Failed to load stops: ${e.message}", Toast.LENGTH_SHORT).show()
+        NetworkHelper.authenticatedRequest(
+            url,
+            "GET",
+            sessionCookie,
+            onSuccess = { responseBody ->
+                val arr = JSONArray(responseBody)
+                stops = (0 until arr.length()).map { arr.getJSONObject(it) }
+                runOnUiThread {
+                    updateStopListWithFilter("")
+                }
+            },
+            onError = { e ->
+                runOnUiThread {
+                    ToastHelper.show(this, "Failed to load stops: ${e.message}")
                 }
             }
-            override fun onResponse(call: Call, response: Response) {
-                if (response.code == 401) {
-                    runOnUiThread {
-                        Toast.makeText(this@MainActivity, "Session expired. Please login again.", Toast.LENGTH_SHORT).show()
-                        startActivity(Intent(this@MainActivity, LoginActivity::class.java))
-                        finish()
-                    }
-                    return
-                }
-                if (response.isSuccessful) {
-                    val responseBody = response.body
-                    val arr = JSONArray(responseBody?.string())
-                    stops = (0 until arr.length()).map { arr.getJSONObject(it) }
-                    runOnUiThread {
-                        updateStopListWithFilter("")
-                    }
-                } else {
-                    runOnUiThread {
-                        Toast.makeText(this@MainActivity, "Failed to load stops: ${response.code}", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-        })
+        )
     }
 
     private fun updateStopListWithFilter(query: String) {
@@ -595,20 +492,20 @@ class MainActivity : AppCompatActivity() {
         val manualStopName = manualStopEdit?.text?.toString()?.trim()
         val stop = selectedStop
         if ((stop == null || stop.stopName.isEmpty()) && manualStopName.isNullOrEmpty()) {
-            Toast.makeText(this, "Please select a stop or enter a stop name", Toast.LENGTH_SHORT).show()
+            ToastHelper.show(this, "Please select a stop or enter a stop name")
             return
         }
         if (!isTracking) {
-            Toast.makeText(this, "Please start location tracking first", Toast.LENGTH_SHORT).show()
+            ToastHelper.show(this, "Please start location tracking first")
             return
         }
         if (selectedRouteId == null) {
-            Toast.makeText(this, "Please select a route", Toast.LENGTH_SHORT).show()
+            ToastHelper.show(this, "Please select a route")
             return
         }
         val route = routes.find { it.optString("route_code", "") == selectedRouteId }
         if (route == null) {
-            Toast.makeText(this, "Invalid route selection", Toast.LENGTH_SHORT).show()
+            ToastHelper.show(this, "Invalid route selection")
             return
         }
         try {
@@ -631,35 +528,28 @@ class MainActivity : AppCompatActivity() {
             val body = RequestBody.create("application/json".toMediaType(), json.toString())
             val sessionCookie = getSessionCookie()
             if (sessionCookie == null) {
-                Toast.makeText(this, "Session expired. Please login again.", Toast.LENGTH_SHORT).show()
-                startActivity(Intent(this, LoginActivity::class.java))
-                finish()
+                SessionHelper.handleSessionExpired(this)
                 return
             }
-            val request = Request.Builder()
-                .url(url)
-                .post(body)
-                .addHeader("Cookie", sessionCookie)
-                .build()
-            OkHttpClient().newCall(request).enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
+            NetworkHelper.authenticatedRequest(
+                url,
+                "POST",
+                sessionCookie,
+                body,
+                onSuccess = {
                     runOnUiThread {
-                        Toast.makeText(this@MainActivity, "Failed to record stop: ${e.message}", Toast.LENGTH_SHORT).show()
+                        ToastHelper.show(this, "Stop recorded successfully")
+                    }
+                },
+                onError = { e ->
+                    runOnUiThread {
+                        ToastHelper.show(this, "Failed to record stop: ${e.message}")
                     }
                 }
-                override fun onResponse(call: Call, response: Response) {
-                    runOnUiThread {
-                        if (response.isSuccessful) {
-                            Toast.makeText(this@MainActivity, "Stop recorded successfully", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(this@MainActivity, "Failed to record stop: ${response.code}", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-            })
+            )
         } catch (e: Exception) {
             Log.e("MainActivity", "Error recording stop: ${e.message}")
-            Toast.makeText(this, "Error recording stop: ${e.message}", Toast.LENGTH_SHORT).show()
+            ToastHelper.show(this, "Error recording stop: ${e.message}")
         }
     }
 
@@ -672,9 +562,7 @@ class MainActivity : AppCompatActivity() {
 
         val sessionCookie = getSessionCookie()
         if (sessionCookie == null) {
-            Toast.makeText(this, "Session expired. Please login again.", Toast.LENGTH_SHORT).show()
-            startActivity(Intent(this, LoginActivity::class.java))
-            finish()
+            SessionHelper.handleSessionExpired(this)
             return
         }
 
@@ -710,9 +598,7 @@ class MainActivity : AppCompatActivity() {
                 override fun onResponse(call: Call, response: Response) {
                     if (response.code == 401) {
                         runOnUiThread {
-                            Toast.makeText(this@MainActivity, "Session expired. Please login again.", Toast.LENGTH_SHORT).show()
-                            startActivity(Intent(this@MainActivity, LoginActivity::class.java))
-                            finish()
+                            SessionHelper.handleSessionExpired(this@MainActivity)
                         }
                         return
                     }
