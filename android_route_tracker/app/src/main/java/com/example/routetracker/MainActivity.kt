@@ -37,6 +37,12 @@ import com.example.routetracker.ToastHelper
 import com.example.routetracker.SessionHelper
 import com.example.routetracker.LocationHelper
 import com.example.routetracker.NetworkHelper
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.card.MaterialCardView
+import okhttp3.RequestBody.Companion.toRequestBody
+import android.view.View
+import android.widget.ImageButton
 
 data class StopDisplayItem(
     val stopName: String,
@@ -97,13 +103,15 @@ class MainActivity : AppCompatActivity() {
         routeField.setOnClickListener { showRoutePickerDialog() }
 
         recordButton.setOnClickListener {
-            // Show loader while fetching location
-            val progressDialog = android.app.ProgressDialog(this)
-            progressDialog.setMessage("Fetching current location...")
-            progressDialog.setCancelable(false)
-            progressDialog.show()
+            // Show Material loader dialog while fetching location
+            val loaderView = layoutInflater.inflate(R.layout.dialog_loader, null)
+            val loaderDialog = MaterialAlertDialogBuilder(this)
+                .setView(loaderView)
+                .setCancelable(false)
+                .create()
+            loaderDialog.show()
             LocationHelper.fetchFreshOrLastLocation(this) { location ->
-                progressDialog.dismiss()
+                loaderDialog.dismiss()
                 if (location != null) {
                     lastKnownLocation = location
                     confirmAndRecordStop()
@@ -113,7 +121,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        stopField.setOnClickListener { showStopPickerDialog() }
+        stopField.setOnClickListener {
+            if (selectedRouteId != null) {
+                showStopPickerDialog()
+            } else {
+                ToastHelper.show(this, "Please select a route first")
+            }
+        }
     }
 
     private fun setupUI() {
@@ -225,8 +239,9 @@ class MainActivity : AppCompatActivity() {
                     "$code | $start -> $end"
                 })
                 runOnUiThread {
-                    val adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_dropdown_item_1line, routeNames)
                     routeField.text = routeNames[0]
+                    stopField.isEnabled = false
+                    stopField.text = "Select stop..."
                 }
             },
             onError = { e ->
@@ -253,6 +268,8 @@ class MainActivity : AppCompatActivity() {
                 stops = (0 until arr.length()).map { arr.getJSONObject(it) }
                 runOnUiThread {
                     updateStopListWithFilter("")
+                    stopField.isEnabled = true
+                    stopField.text = "Select stop..."
                 }
             },
             onError = { e ->
@@ -300,6 +317,19 @@ class MainActivity : AppCompatActivity() {
     private fun updateTopStopsChips(stops: List<StopDisplayItem>) {
         topStopsLayout.removeAllViews()
         val nearest = stops.firstOrNull() ?: return
+        val card = MaterialCardView(this)
+        card.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, 0, 0, 16) }
+        card.radius = 18f
+        card.cardElevation = 6f
+        card.isClickable = true
+        card.isFocusable = true
+        card.setRippleColorResource(R.color.primary)
+        card.setCardBackgroundColor(resources.getColor(
+            if (selectedStop?.stop_id == nearest.stop_id) R.color.highlight else android.R.color.white, null))
+
         val container = LinearLayout(this)
         container.orientation = LinearLayout.VERTICAL
         container.setPadding(0, 0, 0, 0)
@@ -332,35 +362,83 @@ class MainActivity : AppCompatActivity() {
         distanceView.textSize = 14f
         distanceView.gravity = android.view.Gravity.CENTER
 
-        container.setBackgroundResource(
-            if (selectedStop?.stop_id == nearest.stop_id) R.drawable.selected_stop_background else R.drawable.unselected_stop_background
-        )
-        container.setOnClickListener {
+        card.setOnClickListener {
             selectedStop = nearest
             stopField.text = nearest.stopName
             updateTopStopsChips(stops)
         }
-        val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        params.setMargins(0, 0, 0, 16)
-        container.layoutParams = params
 
         container.addView(stopNameView)
         container.addView(distanceView)
-        topStopsLayout.addView(container)
+        card.addView(container)
+        topStopsLayout.addView(card)
     }
 
     private fun getCurrentLocation(): Location? {
         return lastKnownLocation
     }
 
-    private fun showRoutePickerDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_route_picker, null)
-        val searchEdit = dialogView.findViewById<EditText>(R.id.routeSearchEdit)
-        val recyclerView = dialogView.findViewById<RecyclerView>(R.id.routeRecyclerView)
-        val dialog = AlertDialog.Builder(this)
+
+    private fun showDropdownDialog(
+        hint: String,
+        items: List<Any>,
+        adapterProvider: (List<Any>, (Any) -> Unit) -> RecyclerView.Adapter<*>,
+        onItemSelected: (Any) -> Unit,
+        filterPredicate: (Any, String) -> Boolean,
+        updateCallback: ((List<Any>) -> Unit)? = null,
+        dialogTitle: String = "Select"
+    ) {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_dropdown_common, null)
+        val searchEdit = dialogView.findViewById<EditText>(R.id.dropdownSearchEdit)
+        val recyclerView = dialogView.findViewById<RecyclerView>(R.id.dropdownRecyclerView)
+        val textInputLayout = dialogView.findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.dropdownTextInputLayout)
+        val titleView = dialogView.findViewById<TextView>(R.id.dropdownDialogTitle)
+        val closeBtn = dialogView.findViewById<ImageButton>(R.id.dropdownDialogClose)
+        val emptyState = dialogView.findViewById<TextView>(R.id.dropdownEmptyState)
+        textInputLayout.hint = hint
+        titleView.text = dialogTitle
+        val dialog = AlertDialog.Builder(this, R.style.TransparentDialog)
             .setView(dialogView)
             .create()
+        closeBtn.setOnClickListener { dialog.dismiss() }
 
+        var currentItems = items
+        val adapter = adapterProvider(currentItems) { selected ->
+            onItemSelected(selected)
+            updateCallback?.invoke(currentItems)
+            dialog.dismiss()
+        }
+        recyclerView.adapter = adapter
+        recyclerView.layoutManager = LinearLayoutManager(this)
+
+        fun updateEmptyState(filteredCount: Int) {
+            emptyState.visibility = if (filteredCount == 0) View.VISIBLE else View.GONE
+            recyclerView.visibility = if (filteredCount == 0) View.GONE else View.VISIBLE
+        }
+
+        searchEdit.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) {}
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val filtered = currentItems.filter { filterPredicate(it, s.toString()) }
+                updateEmptyState(filtered.size)
+                when (adapter) {
+                    is RouteAdapter -> {
+                        @Suppress("UNCHECKED_CAST")
+                        adapter.updateRoutes(filtered as List<RouteDisplayItem>)
+                    }
+                    is StopAdapter -> {
+                        @Suppress("UNCHECKED_CAST")
+                        adapter.updateStops(filtered as List<StopDisplayItem>)
+                    }
+                }
+            }
+        })
+        updateEmptyState(currentItems.size)
+        dialog.show()
+    }
+
+    private fun showRoutePickerDialog() {
         val routeItems = routes
             .sortedWith(compareBy(
                 { it.optString("route_code", "").toIntOrNull() ?: Int.MAX_VALUE },
@@ -373,40 +451,28 @@ class MainActivity : AppCompatActivity() {
                     routeEnd = it.optString("route_end_point", "")
                 )
             }
-        val adapter = RouteAdapter(routeItems) { selectedRoute ->
-            routeField.text = "${selectedRoute.routeCode} | ${selectedRoute.routeStart} -> ${selectedRoute.routeEnd}"
-            selectedRouteId = selectedRoute.routeCode
-            getSharedPreferences("Auth", MODE_PRIVATE).edit().putString("route_id", selectedRoute.routeCode).apply()
-            fetchStops(selectedRoute.routeCode)
-            dialog.dismiss()
-        }
-        recyclerView.adapter = adapter
-        recyclerView.layoutManager = LinearLayoutManager(this)
-
-        searchEdit.addTextChangedListener(object : android.text.TextWatcher {
-            override fun afterTextChanged(s: android.text.Editable?) {}
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                val filtered = routeItems.filter {
-                    it.routeCode.contains(s.toString(), true) ||
-                    it.routeStart.contains(s.toString(), true) ||
-                    it.routeEnd.contains(s.toString(), true)
-                }
-                adapter.updateRoutes(filtered)
-            }
-        })
-        dialog.show()
+        showDropdownDialog(
+            hint = "Search route...",
+            items = routeItems,
+            adapterProvider = { items, onClick -> RouteAdapter(items as List<RouteDisplayItem>, onClick as (RouteDisplayItem) -> Unit) },
+            onItemSelected = { selected ->
+                val selectedRoute = selected as RouteDisplayItem
+                routeField.text = "${selectedRoute.routeCode} | ${selectedRoute.routeStart} -> ${selectedRoute.routeEnd}"
+                selectedRouteId = selectedRoute.routeCode
+                getSharedPreferences("Auth", MODE_PRIVATE).edit().putString("route_id", selectedRoute.routeCode).apply()
+                fetchStops(selectedRoute.routeCode)
+            },
+            filterPredicate = { item, query ->
+                val route = item as RouteDisplayItem
+                route.routeCode.contains(query, true) ||
+                route.routeStart.contains(query, true) ||
+                route.routeEnd.contains(query, true)
+            },
+            dialogTitle = "Select Route"
+        )
     }
 
     private fun showStopPickerDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_stop_picker, null)
-        val searchEdit = dialogView.findViewById<EditText>(R.id.stopSearchEdit)
-        val recyclerView = dialogView.findViewById<RecyclerView>(R.id.stopRecyclerViewDialog)
-        val dialogTopStopsLayout = dialogView.findViewById<LinearLayout>(R.id.dialogTopStopsLayout)
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .create()
-
         val currentLocation = getCurrentLocation()
         val stopItems = stops.map { stop ->
             val stopLat = stop.optDouble("lat", 0.0)
@@ -429,26 +495,23 @@ class MainActivity : AppCompatActivity() {
         val stopItemsWithTop2 = stopItems.mapIndexed { idx, item ->
             if (idx < 2) item.copy(isTop3 = true) else item
         }
-        val adapter = StopAdapter(stopItemsWithTop2) { selected ->
-            selectedStop = selected
-            stopField.text = selected.stopName
-            dialog.dismiss()
-        }
-        recyclerView.adapter = adapter
-        recyclerView.layoutManager = LinearLayoutManager(this)
-
-        
-        searchEdit.addTextChangedListener(object : android.text.TextWatcher {
-            override fun afterTextChanged(s: android.text.Editable?) {}
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                val filtered = stopItemsWithTop2.filter {
-                    it.stopName.contains(s.toString(), true)
-                }
-                adapter.updateStops(filtered)
-            }
-        })
-        dialog.show()
+        showDropdownDialog(
+            hint = "Search stop...",
+            items = stopItemsWithTop2,
+            adapterProvider = { items, onClick -> StopAdapter(items as List<StopDisplayItem>, onClick as (StopDisplayItem) -> Unit) },
+            onItemSelected = { selected ->
+                val stop = selected as StopDisplayItem
+                selectedStop = stop
+                stopField.text = stop.stopName
+                updateTopStopsChips(stopItemsWithTop2)
+            },
+            filterPredicate = { item, query ->
+                val stop = item as StopDisplayItem
+                stop.stopName.contains(query, true)
+            },
+            updateCallback = { updateTopStopsChips(stopItemsWithTop2) },
+            dialogTitle = "Select Stop"
+        )
     }
 
     private fun confirmAndRecordStop() {
@@ -525,7 +588,7 @@ class MainActivity : AppCompatActivity() {
             }
             Log.d("MainActivity", "Recording stop with payload: $json")
             val url = "${Constants.BASE_URL}/routeTrackerApi/record"
-            val body = RequestBody.create("application/json".toMediaType(), json.toString())
+            val body = json.toString().toRequestBody("application/json".toMediaType())
             val sessionCookie = getSessionCookie()
             if (sessionCookie == null) {
                 SessionHelper.handleSessionExpired(this)
@@ -538,7 +601,8 @@ class MainActivity : AppCompatActivity() {
                 body,
                 onSuccess = {
                     runOnUiThread {
-                        ToastHelper.show(this, "Stop recorded successfully")
+                        val rootView = findViewById<View>(android.R.id.content)
+                        Snackbar.make(rootView, "Stop recorded successfully", Snackbar.LENGTH_LONG).show()
                     }
                 },
                 onError = { e ->
@@ -584,7 +648,7 @@ class MainActivity : AppCompatActivity() {
             }
             
             val url = "${Constants.BASE_URL}/routeTrackerApi/location-update"
-            val body = RequestBody.create("application/json".toMediaType(), json.toString())
+            val body = json.toString().toRequestBody("application/json".toMediaType())
             val request = Request.Builder()
                 .url(url)
                 .post(body)
@@ -613,6 +677,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun registerNetworkReceiver() {
+        // TODO: For Android N+ use ConnectivityManager.NetworkCallback for network changes. This is required for future-proofing as CONNECTIVITY_ACTION is deprecated.
         val filter = IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION)
         registerReceiver(object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {

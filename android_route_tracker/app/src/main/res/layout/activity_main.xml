@@ -1,218 +1,224 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <ImageView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:src="@drawable/bg"
-        android:scaleType="centerCrop"/>
-
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <!-- Top row: App icon centered, online status very small at top right -->
-        <FrameLayout
-            android:id="@+id/appLogoContainer"
-            android:layout_width="72dp"
-            android:layout_height="72dp"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="32dp">
-            <View
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/bg"
+            android:scaleType="centerCrop"/>
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <!-- Top row: App icon centered, online status very small at top right -->
+            <FrameLayout
+                android:id="@+id/appLogoContainer"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginTop="32dp">
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/circle_white_bg"/>
+                <ImageView
+                    android:id="@+id/appLogo"
+                    android:layout_width="62dp"
+                    android:layout_height="62dp"
+                    android:src="@drawable/icon"
+                    android:scaleType="centerCrop"
+                    android:layout_gravity="center"
+                    android:contentDescription="App Logo"/>
+            </FrameLayout>
+
+            <LinearLayout
+                android:id="@+id/statusCard"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="@drawable/rounded_card_bg"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:elevation="4dp"
+                android:gravity="center_vertical"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginTop="16dp"
+                android:layout_marginEnd="16dp">
+                <View
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:layout_gravity="center_vertical"
+                    android:background="@drawable/green_dot"
+                    android:layout_marginEnd="4dp"/>
+                <TextView
+                    android:id="@+id/statusText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Online"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#2193b0"
+                    android:gravity="center_vertical"/>
+            </LinearLayout>
+
+            <!-- Current location, beautified with pin icon -->
+            <LinearLayout
+                android:id="@+id/currentLocationLayout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="@drawable/rounded_card_bg"
+                android:paddingLeft="20dp"
+                android:paddingRight="20dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:elevation="4dp"
+                app:layout_constraintTop_toBottomOf="@id/appLogoContainer"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginTop="36dp">
+
+                <ImageView
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:src="@drawable/ic_pin"
+                    android:layout_gravity="center_vertical"
+                    android:contentDescription="Location Pin"
+                    android:layout_marginEnd="12dp"/>
+
+                <TextView
+                    android:id="@+id/currentLocationText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Current Location: --"
+                    android:textSize="18sp"
+                    android:textColor="#333333"
+                    android:gravity="center_vertical"/>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/routeField"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@drawable/circle_white_bg"/>
-            <ImageView
-                android:id="@+id/appLogo"
-                android:layout_width="62dp"
-                android:layout_height="62dp"
-                android:src="@drawable/icon"
-                android:scaleType="centerCrop"
-                android:layout_gravity="center"
-                android:contentDescription="App Logo"/>
-        </FrameLayout>
-
-        <LinearLayout
-            android:id="@+id/statusCard"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:background="@drawable/rounded_card_bg"
-            android:paddingLeft="8dp"
-            android:paddingRight="8dp"
-            android:paddingTop="2dp"
-            android:paddingBottom="2dp"
-            android:elevation="4dp"
-            android:gravity="center_vertical"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="16dp"
-            android:layout_marginEnd="16dp">
-            <View
-                android:layout_width="8dp"
-                android:layout_height="8dp"
-                android:layout_gravity="center_vertical"
-                android:background="@drawable/green_dot"
-                android:layout_marginEnd="4dp"/>
-            <TextView
-                android:id="@+id/statusText"
-                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Online"
-                android:textSize="13sp"
+                android:background="@drawable/rounded_card_bg"
+                android:padding="16dp"
+                android:text="Select Route"
+                android:textColor="#333"
+                android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="#2193b0"
-                android:gravity="center_vertical"/>
-        </LinearLayout>
-
-        <!-- Current location, beautified with pin icon -->
-        <LinearLayout
-            android:id="@+id/currentLocationLayout"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:background="@drawable/rounded_card_bg"
-            android:paddingLeft="20dp"
-            android:paddingRight="20dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp"
-            android:elevation="4dp"
-            app:layout_constraintTop_toBottomOf="@id/appLogoContainer"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="36dp">
-
-            <ImageView
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:src="@drawable/ic_pin"
-                android:layout_gravity="center_vertical"
-                android:contentDescription="Location Pin"
-                android:layout_marginEnd="12dp"/>
+                android:gravity="center_vertical"
+                app:layout_constraintTop_toBottomOf="@id/currentLocationLayout"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginTop="38dp"
+                android:layout_marginStart="32dp"
+                android:layout_marginEnd="32dp"/>
 
             <TextView
-                android:id="@+id/currentLocationText"
+                android:id="@+id/stopField"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/rounded_card_bg"
+                android:padding="16dp"
+                android:text="Select Stop"
+                android:textColor="#333"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:gravity="center_vertical"
+                app:layout_constraintTop_toBottomOf="@id/routeField"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginTop="24dp"
+                android:layout_marginStart="32dp"
+                android:layout_marginEnd="32dp"/>
+
+            <LinearLayout
+                android:id="@+id/topStopsLayout"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                app:layout_constraintTop_toBottomOf="@id/stopField"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginTop="16dp"
+                android:layout_marginStart="32dp"
+                android:layout_marginEnd="32dp"/>
+
+            <TextView
+                android:id="@+id/manualStopLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Enter stop name manually:"
+                android:textColor="#333"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:layout_constraintTop_toBottomOf="@id/topStopsLayout"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginTop="20dp"
+                android:layout_marginStart="32dp"
+                android:layout_marginEnd="32dp"/>
+
+            <EditText
+                android:id="@+id/manualStopEdit"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter stop name if not found"
+                android:inputType="text"
+                app:layout_constraintTop_toBottomOf="@id/manualStopLabel"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginTop="8dp"
+                android:layout_marginStart="32dp"
+                android:layout_marginEnd="32dp"
+                android:background="@drawable/rounded_card_bg"
+                android:padding="16dp"
+                android:textSize="16sp"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/recordButton"
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:text="Record Stop"
+                android:textSize="24sp"
+                app:cornerRadius="32dp"
+                app:backgroundTint="#4CAF50"
+                app:layout_constraintTop_toBottomOf="@id/manualStopEdit"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginTop="28dp"
+                android:layout_marginStart="32dp"
+                android:layout_marginEnd="32dp"/>
+
+            <!-- Logout button at the bottom center -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/logoutButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Current Location: --"
-                android:textSize="18sp"
-                android:textColor="#333333"
-                android:gravity="center_vertical"/>
-        </LinearLayout>
+                android:text="Logout"
+                android:textSize="16sp"
+                app:cornerRadius="24dp"
+                app:backgroundTint="#F44336"
+                app:iconPadding="0dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginBottom="32dp"/>
 
-        <TextView
-            android:id="@+id/routeField"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/rounded_card_bg"
-            android:padding="16dp"
-            android:text="Select Route"
-            android:textColor="#333"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:gravity="center_vertical"
-            app:layout_constraintTop_toBottomOf="@id/currentLocationLayout"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="38dp"
-            android:layout_marginStart="32dp"
-            android:layout_marginEnd="32dp"/>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </FrameLayout>
 
-        <TextView
-            android:id="@+id/stopField"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/rounded_card_bg"
-            android:padding="16dp"
-            android:text="Select Stop"
-            android:textColor="#333"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:gravity="center_vertical"
-            app:layout_constraintTop_toBottomOf="@id/routeField"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="24dp"
-            android:layout_marginStart="32dp"
-            android:layout_marginEnd="32dp"/>
-
-        <LinearLayout
-            android:id="@+id/topStopsLayout"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            app:layout_constraintTop_toBottomOf="@id/stopField"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="16dp"
-            android:layout_marginStart="32dp"
-            android:layout_marginEnd="32dp"/>
-
-        <TextView
-            android:id="@+id/manualStopLabel"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Enter stop name manually:"
-            android:textColor="#333"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            app:layout_constraintTop_toBottomOf="@id/topStopsLayout"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="20dp"
-            android:layout_marginStart="32dp"
-            android:layout_marginEnd="32dp"/>
-
-        <EditText
-            android:id="@+id/manualStopEdit"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Enter stop name if not found"
-            android:inputType="text"
-            app:layout_constraintTop_toBottomOf="@id/manualStopLabel"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="8dp"
-            android:layout_marginStart="32dp"
-            android:layout_marginEnd="32dp"
-            android:background="@drawable/rounded_card_bg"
-            android:padding="16dp"
-            android:textSize="16sp"/>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/recordButton"
-            android:layout_width="match_parent"
-            android:layout_height="64dp"
-            android:text="Record Stop"
-            android:textSize="24sp"
-            app:cornerRadius="32dp"
-            app:backgroundTint="#4CAF50"
-            app:layout_constraintTop_toBottomOf="@id/manualStopEdit"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="28dp"
-            android:layout_marginStart="32dp"
-            android:layout_marginEnd="32dp"/>
-
-        <!-- Logout button at the bottom center -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/logoutButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Logout"
-            android:textSize="16sp"
-            app:cornerRadius="24dp"
-            app:backgroundTint="#F44336"
-            app:iconPadding="0dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginBottom="32dp"/>
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
-</FrameLayout> 
+</androidx.coordinatorlayout.widget.CoordinatorLayout> 

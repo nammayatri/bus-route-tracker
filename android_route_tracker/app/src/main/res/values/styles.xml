@@ -3,4 +3,7 @@
         <!-- Customize your theme here. -->
     </style>
     <style name="MyMaterialAlertDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog" />
+    <style name="TransparentDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
 </resources> 
