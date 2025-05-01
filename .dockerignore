@@ -2,3 +2,4 @@ assets/
 .env
 .gitignore
 .dockerignore
+config/config.json
