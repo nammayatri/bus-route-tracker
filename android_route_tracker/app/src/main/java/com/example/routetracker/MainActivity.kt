@@ -366,6 +366,16 @@ class MainActivity : AppCompatActivity() {
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
 
+        // Add 'Closest stop' label
+        val closestLabel = TextView(this)
+        closestLabel.text = "Closest stop"
+        closestLabel.setTextColor(resources.getColor(R.color.gray, null))
+        closestLabel.textSize = 12f
+        closestLabel.setTypeface(null, android.graphics.Typeface.BOLD)
+        closestLabel.setPadding(0, 0, 0, 2)
+        closestLabel.gravity = android.view.Gravity.CENTER
+        container.addView(closestLabel)
+
         val stopNameView = TextView(this)
         stopNameView.text = nearest.stopName
         stopNameView.setTextColor(resources.getColor(R.color.primary, null))
@@ -610,6 +620,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun sendLocationUpdate(latitude: Double, longitude: Double) {
         if (!isTracking) return
+        if (!Constants.SEND_LOCATION_UPDATES) {
+            Log.d("MainActivity", "SEND_LOCATION_UPDATES is false, skipping backend location update.")
+            return
+        }
 
         val sessionCookie = getSessionCookie()
         if (sessionCookie == null) {
