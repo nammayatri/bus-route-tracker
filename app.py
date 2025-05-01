@@ -9,17 +9,44 @@ from clickhouse_driver import Client
 import time
 import requests
 import logging
+import base64
 
+# Centralized config loading
+CONFIG_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "config", "config.json"))
+CONFIG_ENV_DATA = os.getenv("CONFIG_ENV_DATA")
+
+def load_config():
+    """Load config.json and return it as a dictionary."""
+    print(f"Loading config from {CONFIG_FILE}")
+    try:
+        if CONFIG_ENV_DATA:
+            decoded_config = base64.b64decode(CONFIG_ENV_DATA).decode("utf-8")
+            config = json.loads(decoded_config)
+            print(f"✅ Loaded config from environment variable\n")
+            return config
+        else:
+            with open(CONFIG_FILE, "r") as file:
+                config = json.load(file)
+            print(f"✅ Loaded config from {CONFIG_FILE}\n")
+            return config
+    except FileNotFoundError:
+        print(f"❌ ERROR: Missing configuration file: {CONFIG_FILE}")
+        exit(1)
+    except json.JSONDecodeError:
+        print(f"❌ ERROR: Invalid JSON format in {CONFIG_FILE}")
+        exit(1)
+
+config = load_config()
 
 app = Flask(__name__)
-app.secret_key = "your_secret_key_here"
+app.secret_key = config["SECRET_KEY"]
 app.permanent_session_lifetime = timedelta(days=365)  # Effectively permanent
 
 # File-based storage for local testing
 LOCAL_DATA_FILE = "local_data.json"
 
 # Configurable cache duration (in hours)
-CACHE_HOURS = int(os.getenv('ROUTE_CACHE_HOURS', 1))  # Default: 1 hour
+CACHE_HOURS = int(config.get('ROUTE_CACHE_HOURS', 1))  # Default: 1 hour
 
 # In-memory cache
 route_cache = {
@@ -28,11 +55,11 @@ route_cache = {
     'stops': {},  # route_id: {'data': ..., 'timestamp': ...}
 }
 
-API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8090')
-API_TOKEN = os.getenv('API_TOKEN', 'test')
-API_CITY = os.getenv('API_CITY', 'chennai')
-API_VEHICLE_TYPE = os.getenv('API_VEHICLE_TYPE', 'bus')
-USE_CLICKHOUSE = os.getenv('USE_CLICKHOUSE', 'false').lower() == 'true'
+API_BASE_URL = config.get('API_BASE_URL', 'http://localhost:8090')
+API_TOKEN = config.get('API_TOKEN', 'test')
+API_CITY = config.get('API_CITY', 'chennai')
+API_VEHICLE_TYPE = config.get('API_VEHICLE_TYPE', 'bus')
+USE_CLICKHOUSE = config.get('USE_CLICKHOUSE', False)
 
 def load_local_data():
     try:
@@ -65,10 +92,10 @@ def save_local_data(data):
 
 def get_clickhouse_client():
     return Client(
-        host=os.getenv('CH_HOST', 'localhost'),
-        user=os.getenv('CH_USER', 'default'),
-        password=os.getenv('CH_PASSWORD', 'root'),
-        database=os.getenv('CH_DB', 'default')
+        host=config.get('CH_HOST', 'localhost'),
+        user=config.get('CH_USER', 'default'),
+        password=config.get('CH_PASSWORD', 'root'),
+        database=config.get('CH_DB', 'default')
     )
 
 def login_required(f):
