@@ -8,4 +8,5 @@ object Constants {
     const val LOCATION_CHANNEL_NAME = "Location Updates"
     const val LOCATION_CHANNEL_DESC = "Channel for location tracking"
     const val LOCATION_NOTIFICATION_ID = 1
+    var SEND_LOCATION_UPDATES = true
 } 
