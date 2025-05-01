@@ -92,16 +92,61 @@ class MainActivity : AppCompatActivity() {
         routeField.setOnClickListener { showRoutePickerDialog() }
 
         recordButton.setOnClickListener {
-            // Fetch the latest location before proceeding
+            // Show loader while fetching location
+            val progressDialog = android.app.ProgressDialog(this)
+            progressDialog.setMessage("Fetching current location...")
+            progressDialog.setCancelable(false)
+            progressDialog.show()
+
             val fusedLocationClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(this)
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                if (location != null) {
-                    lastKnownLocation = location
-                    confirmAndRecordStop()
-                } else {
-                    Toast.makeText(this, "Could not fetch current location. Please try again.", Toast.LENGTH_SHORT).show()
+            var usedLocation = false
+            val locationRequest = com.google.android.gms.location.LocationRequest.create().apply {
+                priority = com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY
+                numUpdates = 1
+                interval = 0
+            }
+            val locationCallback = object : com.google.android.gms.location.LocationCallback() {
+                override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
+                    if (!usedLocation) {
+                        usedLocation = true
+                        progressDialog.dismiss()
+                        val freshLocation = result.lastLocation
+                        if (freshLocation != null) {
+                            lastKnownLocation = freshLocation
+                            confirmAndRecordStop()
+                        } else {
+                            // Fallback to last known
+                            fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
+                                if (lastLoc != null) {
+                                    lastKnownLocation = lastLoc
+                                    confirmAndRecordStop()
+                                } else {
+                                    Toast.makeText(this@MainActivity, "Could not fetch current location. Please try again.", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                        fusedLocationClient.removeLocationUpdates(this)
+                    }
                 }
             }
+            // Start fresh location request
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
+            // Fallback after 3 seconds if no fresh location
+            android.os.Handler(mainLooper).postDelayed({
+                if (!usedLocation) {
+                    usedLocation = true
+                    progressDialog.dismiss()
+                    fusedLocationClient.removeLocationUpdates(locationCallback)
+                    fusedLocationClient.lastLocation.addOnSuccessListener { lastLoc ->
+                        if (lastLoc != null) {
+                            lastKnownLocation = lastLoc
+                            confirmAndRecordStop()
+                        } else {
+                            Toast.makeText(this@MainActivity, "Could not fetch current location. Please try again.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }, 3000)
         }
 
         stopField.setOnClickListener { showStopPickerDialog() }

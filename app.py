@@ -60,6 +60,7 @@ API_TOKEN = config.get('API_TOKEN', 'test')
 API_CITY = config.get('API_CITY', 'chennai')
 API_VEHICLE_TYPE = config.get('API_VEHICLE_TYPE', 'bus')
 USE_CLICKHOUSE = config.get('USE_CLICKHOUSE', False)
+CLICKHOUSE_DB = config.get('CH_DB', 'default')
 
 def load_local_data():
     try:
@@ -175,8 +176,8 @@ def record_stop():
         try:
             client = get_clickhouse_client()
             client.execute(
-                '''
-                INSERT INTO default.bus_stop_location_data 
+                f'''
+                INSERT INTO {CLICKHOUSE_DB}.bus_stop_location_data 
                 (id, route_id, stop_id, stop_name, latitude, longitude, user_id, timestamp, type)
                 VALUES
                 ''',
@@ -229,8 +230,8 @@ def location_update():
         try:
             client = get_clickhouse_client()
             client.execute(
-                '''
-                INSERT INTO default.bus_stop_location_data 
+                f'''
+                INSERT INTO {CLICKHOUSE_DB}.bus_stop_location_data 
                 (id, user_id, route_id, stop_id, stop_name, latitude, longitude, timestamp, type)
                 VALUES
                 ''',
