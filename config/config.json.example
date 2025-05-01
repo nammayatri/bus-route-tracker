@@ -1,0 +1,13 @@
+{
+  "API_BASE_URL": "http://localhost:8090",
+  "API_TOKEN": "your_api_token_here",
+  "API_CITY": "your_city_name",
+  "API_VEHICLE_TYPE": "bus",
+  "ROUTE_CACHE_HOURS": 5,
+  "USE_CLICKHOUSE": false,
+  "CH_HOST": "your_clickhouse_host",
+  "CH_USER": "your_clickhouse_user",
+  "CH_PASSWORD": "your_clickhouse_password",
+  "CH_DB": "default",
+  "SECRET_KEY": "your_secret_key_here"
+} 
