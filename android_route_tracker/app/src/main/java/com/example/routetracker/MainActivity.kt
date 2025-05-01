@@ -229,7 +229,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val url = "${Constants.BASE_URL}/api/routes"
+        val url = "${Constants.BASE_URL}/routeTrackerApi/routes"
         val request = Request.Builder()
             .url(url)
             .addHeader("Cookie", sessionCookie)
@@ -284,7 +284,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val url = "${Constants.BASE_URL}/api/stops?route_id=$routeId"
+        val url = "${Constants.BASE_URL}/routeTrackerApi/stops?route_id=$routeId"
         val request = Request.Builder()
             .url(url)
             .addHeader("Cookie", sessionCookie)
@@ -572,7 +572,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             Log.d("MainActivity", "Recording stop with payload: $json")
-            val url = "${Constants.BASE_URL}/api/record"
+            val url = "${Constants.BASE_URL}/routeTrackerApi/record"
             val body = RequestBody.create("application/json".toMediaType(), json.toString())
             val sessionCookie = getSessionCookie()
             if (sessionCookie == null) {
@@ -636,7 +636,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             
-            val url = "${Constants.BASE_URL}/api/location-update"
+            val url = "${Constants.BASE_URL}/routeTrackerApi/location-update"
             val body = RequestBody.create("application/json".toMediaType(), json.toString())
             val request = Request.Builder()
                 .url(url)

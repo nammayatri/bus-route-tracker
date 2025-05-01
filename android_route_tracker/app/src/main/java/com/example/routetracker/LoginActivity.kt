@@ -106,7 +106,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun login(password: String) {
-        val url = "${Constants.BASE_URL}/record-data/login"
+        val url = "${Constants.BASE_URL}/routeTrackerApi/login"
         val json = JSONObject().apply { put("password", password) }
         val body = RequestBody.create("application/json".toMediaType(), json.toString())
         val request = Request.Builder().url(url).post(body).build()

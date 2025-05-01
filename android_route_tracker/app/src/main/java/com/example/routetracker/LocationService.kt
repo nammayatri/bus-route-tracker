@@ -148,7 +148,7 @@ class LocationService : Service() {
             if (stopId != null) put("stop_id", stopId)
             if (stopName != null) put("stop_name", stopName)
         }
-        val url = "${Constants.BASE_URL}/api/location-update"
+        val url = "${Constants.BASE_URL}/routeTrackerApi/location-update"
         val body = RequestBody.create("application/json".toMediaType(), json.toString())
         val request = Request.Builder()
             .url(url)
