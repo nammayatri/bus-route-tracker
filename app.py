@@ -119,7 +119,7 @@ APP_CONFIG = load_users()
 def home():
     return redirect(url_for('login'))
 
-@app.route('/record-data/login', methods=['GET', 'POST'])
+@app.route('/routeTrackerApi/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
         return render_template('login.html')
@@ -137,12 +137,12 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-@app.route('/api/routes')
+@app.route('/routeTrackerApi/routes')
 @login_required
 def get_routes():
     return jsonify(get_cached_routes())
 
-@app.route('/api/stops')
+@app.route('/routeTrackerApi/stops')
 @login_required
 def get_stops():
     route_id = request.args.get('route_id')
@@ -150,7 +150,7 @@ def get_stops():
         return jsonify({'error': 'route_id is required'}), 400
     return jsonify(get_cached_stops(route_id))
 
-@app.route('/api/record', methods=['POST'])
+@app.route('/routeTrackerApi/record', methods=['POST'])
 @login_required
 def record_stop():
     data = request.get_json()
@@ -205,11 +205,11 @@ def record_stop():
     
     return jsonify({'success': True})
 
-@app.route('/record-data/bus-data')
+@app.route('/routeTrackerApi/bus-data')
 def record_bus_data():
     return send_from_directory('static', 'index.html')
 
-@app.route('/api/location-update', methods=['POST'])
+@app.route('/routeTrackerApi/location-update', methods=['POST'])
 @login_required
 def location_update():
     data = request.get_json()
@@ -265,7 +265,7 @@ def location_update():
 
 def fetch_routes_from_api():
     print("Fetching routes from new external API...")
-    url = f'{API_BASE_URL}/api/route/list?city={API_CITY}&vehicle_type={API_VEHICLE_TYPE}'
+    url = f'{API_BASE_URL}/datatool/api/route/list?city={API_CITY}&vehicle_type={API_VEHICLE_TYPE}'
     headers = {'X-Api-Token': API_TOKEN}
     try:
         response = requests.get(url, headers=headers, timeout=5)
@@ -277,7 +277,7 @@ def fetch_routes_from_api():
 
 def fetch_stops_from_api(route_id):
     print(f"Fetching stops for route {route_id} from new external API...")
-    url = f'{API_BASE_URL}/api/route/{route_id}?city={API_CITY}&vehicle_type={API_VEHICLE_TYPE}'
+    url = f'{API_BASE_URL}/datatool/api/route/{route_id}?city={API_CITY}&vehicle_type={API_VEHICLE_TYPE}'
     headers = {'Authorization': f'Bearer {API_TOKEN}'}
     try:
         response = requests.get(url, headers=headers, timeout=5)

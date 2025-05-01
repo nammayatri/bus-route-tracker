@@ -17,15 +17,6 @@
         android:layout_height="300dp"
         android:layout_marginTop="12dp"/>
 
-    <EditText
-        android:id="@+id/manualStopEdit"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Enter stop name if not found"
-        android:inputType="text"
-        android:layout_marginTop="16dp"/>
-
-    <!-- Top 2 nearest stops as chips/buttons at the bottom -->
     <LinearLayout
         android:id="@+id/dialogTopStopsLayout"
         android:layout_width="match_parent"

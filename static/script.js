@@ -124,10 +124,10 @@ function showError(message) {
 // Load routes from the backend
 async function loadRoutes() {
     try {
-        const response = await fetch('/api/routes');
+        const response = await fetch('/routeTrackerApi/routes');
         if (!response.ok) {
             if (response.status === 401) {
-                window.location.href = '/record-data/login';
+                window.location.href = '/routeTrackerApi/login';
                 return;
             }
             throw new Error('Failed to load routes');
@@ -256,7 +256,7 @@ async function loadStops() {
         return;
     }
     try {
-        const response = await fetch(`/api/stops?route_id=${routeId}`);
+        const response = await fetch(`/routeTrackerApi/stops?route_id=${routeId}`);
         if (!response.ok) throw new Error('Failed to load stops');
         stops = await response.json();
         selectedRoute = routeId;
@@ -335,8 +335,17 @@ function getOneTimeLocation() {
             }
         },
         error => {
-            console.error('Error getting initial location:', error);
-            showModal('Could not get precise location. Please enable location services.', 'warning');
+            console.error('Geolocation error:', error, error.code, error.message);
+            if (error.code === error.PERMISSION_DENIED) {
+                showModal('Location access denied. Please enable location services.');
+            } else if (error.code === error.POSITION_UNAVAILABLE) {
+                showModal('Location unavailable. Try moving to an open area or check your device settings.');
+            } else if (error.code === error.TIMEOUT) {
+                showModal('Could not get your location in time. Please try again.');
+            } else {
+                showModal('Unknown location error. Please try again.');
+            }
+            setTimeout(hideModal, 3000);
         },
         { 
             enableHighAccuracy: true, 
@@ -654,7 +663,7 @@ function recordStopWithLocation(stopName, stopId, lat, lon) {
     // Mark this as the last time we sent data to backend
     lastPositionTimestamp = Date.now();
     
-    fetch('/api/record', {
+    fetch('/routeTrackerApi/record', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -737,7 +746,7 @@ function sendLocationToBackend(lat, lon) {
     // Update timestamp of last sent position
     lastPositionTimestamp = Date.now();
     
-    fetch('/api/location-update', {
+    fetch('/routeTrackerApi/location-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
