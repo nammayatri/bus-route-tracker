@@ -99,6 +99,22 @@ class MainActivity : AppCompatActivity() {
         routeSelectButton.text = selectedRouteDisplay
         routeSelectButton.setOnClickListener { showRoutePickerDialog() }
         submitButton.setOnClickListener { handleSubmit() }
+
+        // Fetch configs from backend before starting location service
+        ConfigManager.fetchConfigs(this, "chennai", "bus") {
+            runOnUiThread {
+                if (PermissionHelper.hasAllLocationPermissions(this)) {
+                    val serviceIntent = Intent(this, LocationService::class.java)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(serviceIntent)
+                    } else {
+                        startService(serviceIntent)
+                    }
+                } else {
+                    PermissionHelper.requestLocationPermissions(this, 1001)
+                }
+            }
+        }
     }
 
     private fun startLocationUpdates() {
@@ -160,7 +176,7 @@ class MainActivity : AppCompatActivity() {
         val nearest = getNearestStop(location)
         if (stops.isEmpty()) {
             showNoStopFallbackDialog()
-        } else if (nearest != null && nearest.distanceMeters <= Constants.STOP_DISTANCE_RADIUS_THRESHOLD_METERS) {
+        } else if (nearest != null && nearest.distanceMeters <= ConfigManager.stopDistanceRadiusThresholdMeters) {
             showConfirmStopDialog(nearest)
         } else {
             showNoStopFallbackDialog()
@@ -513,6 +529,20 @@ class MainActivity : AppCompatActivity() {
         })
         dialog.setContentView(sheetView)
         dialog.show()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 1001 && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+            val serviceIntent = Intent(this, LocationService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+        } else if (requestCode == 1001) {
+            Toast.makeText(this, "Location permission is required for location updates.", Toast.LENGTH_LONG).show()
+        }
     }
 }
 

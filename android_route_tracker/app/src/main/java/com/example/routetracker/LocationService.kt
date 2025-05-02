@@ -51,7 +51,8 @@ class LocationService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        updateInterval = intent?.getLongExtra("update_interval", Constants.LOCATION_UPDATE_INTERVAL) ?: Constants.LOCATION_UPDATE_INTERVAL
+        updateInterval = ConfigManager.locationUpdateInterval
+        Log.d("LocationService", "Using config: updateInterval=$updateInterval, sendLocationUpdates=${ConfigManager.sendLocationUpdates}, distanceThresholdMeters=${ConfigManager.distanceThresholdMeters}")
         try {
             startForeground(1, createNotification())
         } catch (e: Exception) {
@@ -92,7 +93,7 @@ class LocationService : Service() {
 
         return NotificationCompat.Builder(this, Constants.LOCATION_CHANNEL_ID)
             .setContentTitle(Constants.LOCATION_CHANNEL_NAME)
-            .setContentText("Tracking your location every ${Constants.LOCATION_UPDATE_INTERVAL / 1000} seconds")
+            .setContentText("Tracking your location every "+ (ConfigManager.locationUpdateInterval / 1000) +" seconds")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -103,7 +104,10 @@ class LocationService : Service() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.lastLocation?.let { location ->
-                    if (shouldSendLocation(location)) {
+                    Log.d("LocationService", "onLocationResult: lat=${location.latitude}, lon=${location.longitude}, time=${location.time}")
+                    val shouldSend = shouldSendLocation(location)
+                    Log.d("LocationService", "shouldSendLocation: $shouldSend, sendLocationUpdates=${ConfigManager.sendLocationUpdates}")
+                    if (shouldSend && ConfigManager.sendLocationUpdates) {
                         sendLocationToServer(location)
                         lastSentLocation = Location(location) // Make a copy
                     }
@@ -114,7 +118,13 @@ class LocationService : Service() {
 
     private fun shouldSendLocation(newLocation: Location): Boolean {
         val last = lastSentLocation
-        return last == null || newLocation.distanceTo(last) > Constants.DISTANCE_THRESHOLD_METERS
+        if (last == null) {
+            Log.d("LocationService", "shouldSendLocation: lastSentLocation is null, will send.")
+            return true
+        }
+        val distance = newLocation.distanceTo(last)
+        Log.d("LocationService", "shouldSendLocation: distanceToLast=$distance, threshold=${ConfigManager.distanceThresholdMeters}")
+        return distance > ConfigManager.distanceThresholdMeters.toFloat()
     }
 
     private fun startLocationUpdates() {
@@ -131,6 +141,7 @@ class LocationService : Service() {
     }
 
     private fun sendLocationToServer(location: Location) {
+        Log.d("LocationService", "sendLocationToServer: lat=${location.latitude}, lon=${location.longitude}, time=${location.time}")
         // Try to get route/stop info if available
         val sharedPrefs = getSharedPreferences("Auth", Context.MODE_PRIVATE)
         val routeId = sharedPrefs.getString("route_id", null)
