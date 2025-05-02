@@ -43,6 +43,7 @@ import com.google.android.material.card.MaterialCardView
 import okhttp3.RequestBody.Companion.toRequestBody
 import android.view.View
 import android.widget.ImageButton
+import com.google.android.gms.location.*
 
 data class StopDisplayItem(
     val stopName: String,
@@ -62,6 +63,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var recordButton: MaterialButton
     private lateinit var statusText: TextView
     private lateinit var logoutButton: MaterialButton
+    private lateinit var toggleLocationButton: MaterialButton
     private lateinit var currentLocationText: TextView
     private lateinit var stopField: TextView
     private lateinit var topStopsLayout: LinearLayout
@@ -75,6 +77,10 @@ class MainActivity : AppCompatActivity() {
     private var lastKnownLocation: Location? = null
     private var selectedStop: StopDisplayItem? = null
     private var lastSentLocation: Location? = null
+    private var isBackendUpdateInProgress = false
+
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var locationCallback: LocationCallback
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,6 +90,7 @@ class MainActivity : AppCompatActivity() {
         recordButton = findViewById(R.id.recordButton)
         statusText = findViewById(R.id.statusText)
         logoutButton = findViewById(R.id.logoutButton)
+        toggleLocationButton = findViewById(R.id.toggleLocationButton)
         currentLocationText = findViewById(R.id.currentLocationText)
         stopField = findViewById(R.id.stopField)
         topStopsLayout = findViewById(R.id.topStopsLayout)
@@ -92,12 +99,32 @@ class MainActivity : AppCompatActivity() {
         checkAndRequestPermissions()
         registerNetworkReceiver()
         checkBatteryStatus()
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                val location = locationResult.lastLocation
+                if (location != null) {
+                    lastKnownLocation = location
+                    updateCurrentLocationText(location)
+                    updateStopListWithFilter(findViewById<EditText>(R.id.stopSearchEdit)?.text?.toString() ?: "")
+                    // Do NOT sendLocationUpdate from MainActivity; backend updates are handled by LocationService
+                }
+            }
+        }
         startLocationUpdatesEvery3Sec()
 
         logoutButton.setOnClickListener {
             getSharedPreferences("Auth", MODE_PRIVATE).edit().clear().apply()
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
+        }
+
+        toggleLocationButton.setOnClickListener {
+            if (isTracking) {
+                stopLocationTracking()
+            } else {
+                startLocationTracking()
+            }
         }
 
         routeField.setOnClickListener { showRoutePickerDialog() }
@@ -158,6 +185,7 @@ class MainActivity : AppCompatActivity() {
 
         if (!isTracking) {
             try {
+                // Do NOT remove MainActivity's location updates; keep UI always live
                 val intent = Intent(this, LocationService::class.java).apply {
                     putExtra("update_interval", Constants.LOCATION_UPDATE_INTERVAL)
                 }
@@ -168,12 +196,14 @@ class MainActivity : AppCompatActivity() {
                 }
                 isTracking = true
                 updateUIForTrackingState()
+                updateOnlineStatus()
                 Toast.makeText(this, "Location tracking started", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                Log.e("MainActivity", "Failed to start location tracking: ${e.message}")
+                Log.e("MainActivity", "Failed to start location tracking: ", e)
                 Toast.makeText(this, "Failed to start location tracking", Toast.LENGTH_SHORT).show()
                 isTracking = false
                 updateUIForTrackingState()
+                updateOnlineStatus()
             }
         }
     }
@@ -182,21 +212,15 @@ class MainActivity : AppCompatActivity() {
         if (isTracking) {
             try {
                 stopService(Intent(this, LocationService::class.java))
+                // Do NOT re-register location updates; UI updates are always active
                 isTracking = false
                 updateUIForTrackingState()
+                updateOnlineStatus()
                 Toast.makeText(this, "Location tracking stopped", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                Log.e("MainActivity", "Failed to stop location tracking: ${e.message}")
+                Log.e("MainActivity", "Failed to stop location tracking: ", e)
                 Toast.makeText(this, "Failed to stop location tracking", Toast.LENGTH_SHORT).show()
             }
-        }
-    }
-
-    private fun toggleLocationTracking() {
-        if (isTracking) {
-            stopLocationTracking()
-        } else {
-            startLocationTracking()
         }
     }
 
@@ -205,9 +229,13 @@ class MainActivity : AppCompatActivity() {
             if (isTracking) {
                 statusText.text = "Location tracking is active"
                 recordButton.isEnabled = true
+                toggleLocationButton.text = "Stop Location Updates"
+                toggleLocationButton.setBackgroundColor(resources.getColor(android.R.color.holo_orange_dark, null))
             } else {
                 statusText.text = "Location tracking is stopped"
                 recordButton.isEnabled = false
+                toggleLocationButton.text = "Start Location Updates"
+                toggleLocationButton.setBackgroundColor(resources.getColor(android.R.color.holo_green_dark, null))
             }
         }
     }
@@ -617,65 +645,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun sendLocationUpdate(latitude: Double, longitude: Double) {
-        if (!isTracking) return
-        if (!Constants.SEND_LOCATION_UPDATES) {
-            Log.d("MainActivity", "SEND_LOCATION_UPDATES is false, skipping backend location update.")
-            return
-        }
-
-        val sessionCookie = getSessionCookie()
-        if (sessionCookie == null) {
-            SessionHelper.handleSessionExpired(this)
-            return
-        }
-
-        try {
-            val routeName = routeField.text.toString()
-            val stopName = routeField.text.toString()
-            val routeIndex = routes.indexOfFirst { it.getString("route_name") == routeName }
-            val stopIndex = stops.indexOfFirst { it.getString("stop_name") == stopName }
-            
-            val json = JSONObject().apply {
-                put("lat", latitude)
-                put("lon", longitude)
-                put("timestamp", System.currentTimeMillis())
-                if (routeIndex != -1 && stopIndex != -1) {
-                    put("route_id", routes[routeIndex].getString("route_code"))
-                    put("stop_id", stops[stopIndex].getString("stop_id"))
-                    put("stop_name", stops[stopIndex].getString("stop_name"))
-                }
-            }
-            
-            val url = "${Constants.BASE_URL}/routeTrackerApi/location-update"
-            val body = json.toString().toRequestBody("application/json".toMediaType())
-            val request = Request.Builder()
-                .url(url)
-                .post(body)
-                .addHeader("Cookie", sessionCookie)
-                .build()
-
-            OkHttpClient().newCall(request).enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    Log.e("MainActivity", "Failed to send location update: ${e.message}")
-                }
-                override fun onResponse(call: Call, response: Response) {
-                    if (response.code == 401) {
-                        runOnUiThread {
-                            SessionHelper.handleSessionExpired(this@MainActivity)
-                        }
-                        return
-                    }
-                    if (!response.isSuccessful) {
-                        Log.e("MainActivity", "Failed to send location update: ${response.code}")
-                    }
-                }
-            })
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Error sending location update: ${e.message}")
-        }
-    }
-
     private fun registerNetworkReceiver() {
         // TODO: For Android N+ use ConnectivityManager.NetworkCallback for network changes. This is required for future-proofing as CONNECTIVITY_ACTION is deprecated.
         val filter = IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION)
@@ -693,7 +662,14 @@ class MainActivity : AppCompatActivity() {
     private fun updateOnlineStatus() {
         runOnUiThread {
             recordButton.isEnabled = isOnline && !isLowBattery
-            statusText.text = if (isOnline) "Online" else "Offline"
+            val statusDot = findViewById<View>(R.id.statusCard).findViewById<View>(R.id.statusDot)
+            if (isTracking) {
+                statusText.text = "Online"
+                statusDot?.setBackgroundResource(R.drawable.green_dot)
+            } else {
+                statusText.text = "Location tracking off"
+                statusDot?.setBackgroundResource(R.drawable.red_dot)
+            }
         }
     }
 
@@ -716,28 +692,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startLocationUpdatesEvery3Sec() {
-        val fusedLocationClient = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(this)
-        val handler = android.os.Handler(mainLooper)
-        val runnable = object : Runnable {
-            override fun run() {
-                try {
-                    fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
-                        if (location != null) {
-                            lastKnownLocation = location
-                            updateCurrentLocationText(location)
-                            updateStopListWithFilter(findViewById<EditText>(R.id.stopSearchEdit)?.text?.toString() ?: "")
-                            // Only send location update if threshold is crossed
-                            if (shouldSendLocation(location)) {
-                                sendLocationUpdate(location.latitude, location.longitude)
-                                lastSentLocation = Location(location) // Make a copy
-                            }
-                        }
-                    }
-                } catch (e: Exception) {}
-                handler.postDelayed(this, Constants.LOCATION_UPDATE_INTERVAL)
-            }
+        val locationRequest = LocationRequest.create().apply {
+            interval = Constants.LOCATION_UPDATE_INTERVAL
+            fastestInterval = Constants.LOCATION_UPDATE_INTERVAL
+            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
         }
-        handler.post(runnable)
+        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, mainLooper)
     }
 
     private fun shouldSendLocation(newLocation: Location): Boolean {
@@ -810,5 +770,10 @@ class MainActivity : AppCompatActivity() {
             }
             isLocationServiceRunning = true
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        fusedLocationClient.removeLocationUpdates(locationCallback)
     }
 } 
