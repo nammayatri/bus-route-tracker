@@ -1,6 +1,5 @@
 package com.example.routetracker
 
-import android.content.Context
 import android.util.Log
 import okhttp3.*
 import org.json.JSONObject
@@ -10,9 +9,9 @@ object ConfigManager {
     var locationUpdateInterval: Long = 3000L
     var stopDistanceRadiusThresholdMeters: Double = 100.0
     var sendLocationUpdates: Boolean = true
-    var distanceThresholdMeters: Double = -10.0
+    var distanceThresholdMeters: Double = 10.0 // Set to a safe default
 
-    fun fetchConfigs(context: Context, city: String, vehicleType: String, onComplete: (() -> Unit)? = null) {
+    fun fetchConfigs(city: String, vehicleType: String, onComplete: (() -> Unit)? = null) {
         val url = "${Constants.BASE_URL}/routeTrackerApi/configs/$city/$vehicleType"
         val request = Request.Builder().url(url).get().build()
         OkHttpClient().newCall(request).enqueue(object : Callback {
@@ -46,4 +45,4 @@ object ConfigManager {
             }
         })
     }
-} 
+}

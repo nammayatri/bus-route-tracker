@@ -35,7 +35,7 @@
         android:id="@+id/submitButton"
         android:layout_width="match_parent"
         android:layout_height="216dp"
-        android:text="Submit"
+        android:text="Mark Stop"
         android:textSize="32sp"
         android:textStyle="bold"
         android:padding="32dp"
