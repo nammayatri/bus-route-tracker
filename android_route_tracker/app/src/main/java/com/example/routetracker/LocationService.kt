@@ -52,7 +52,6 @@ class LocationService : Service() {
             return START_NOT_STICKY
         }
         updateInterval = ConfigManager.locationUpdateInterval
-        Log.d("LocationService", "Using config: updateInterval=$updateInterval, sendLocationUpdates=${ConfigManager.sendLocationUpdates}, distanceThresholdMeters=${ConfigManager.distanceThresholdMeters}")
         try {
             startForeground(1, createNotification())
         } catch (e: Exception) {
@@ -104,9 +103,7 @@ class LocationService : Service() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.lastLocation?.let { location ->
-                    Log.d("LocationService", "onLocationResult: lat=${location.latitude}, lon=${location.longitude}, time=${location.time}")
                     val shouldSend = shouldSendLocation(location)
-                    Log.d("LocationService", "shouldSendLocation: $shouldSend, sendLocationUpdates=${ConfigManager.sendLocationUpdates}")
                     if (shouldSend && ConfigManager.sendLocationUpdates) {
                         sendLocationToServer(location)
                         lastSentLocation = Location(location) // Make a copy
@@ -119,11 +116,9 @@ class LocationService : Service() {
     private fun shouldSendLocation(newLocation: Location): Boolean {
         val last = lastSentLocation
         if (last == null) {
-            Log.d("LocationService", "shouldSendLocation: lastSentLocation is null, will send.")
             return true
         }
         val distance = newLocation.distanceTo(last)
-        Log.d("LocationService", "shouldSendLocation: distanceToLast=$distance, threshold=${ConfigManager.distanceThresholdMeters}")
         return distance > ConfigManager.distanceThresholdMeters.toFloat()
     }
 
@@ -141,7 +136,6 @@ class LocationService : Service() {
     }
 
     private fun sendLocationToServer(location: Location) {
-        Log.d("LocationService", "sendLocationToServer: lat=${location.latitude}, lon=${location.longitude}, time=${location.time}")
         // Try to get route/stop info if available
         val sharedPrefs = getSharedPreferences("Auth", Context.MODE_PRIVATE)
         val routeId = sharedPrefs.getString("route_id", null)
@@ -171,7 +165,6 @@ class LocationService : Service() {
             body,
             onSuccess = {
                 try {
-                    Log.d("LocationService", "Location update sent successfully.")
                 } catch (e: Exception) {
                     Log.e("LocationService", "Error handling location update success: ${e.message}")
                 }

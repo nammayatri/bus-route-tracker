@@ -1,47 +1,56 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="0dp">
-
-    <EditText
-        android:id="@+id/stopSearchEdit"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Search stop..."
-        android:inputType="text"
-        android:background="@drawable/rounded_card_bg"
-        android:padding="14dp"
-        android:textSize="16sp"
-        android:layout_margin="16dp"/>
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#E0E0E0"
-        android:layout_marginLeft="16dp"
-        android:layout_marginRight="16dp"/>
-
-    <androidx.cardview.widget.CardView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:radius="18dp"
-        android:elevation="4dp">
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/stopRecyclerViewDialog"
-            android:layout_width="match_parent"
-            android:layout_height="300dp"
-            android:padding="8dp"/>
-    </androidx.cardview.widget.CardView>
+    android:fillViewport="true">
 
     <LinearLayout
-        android:id="@+id/dialogTopStopsLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:layout_marginTop="16dp"
-        android:gravity="start"
-        android:layout_marginLeft="16dp"
-        android:layout_marginRight="16dp"/>
-</LinearLayout> 
+        android:padding="@dimen/dialog_padding">
+
+        <EditText
+            android:id="@+id/stopSearchEdit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Search stop..."
+            android:inputType="text"
+            android:background="@drawable/rounded_card_bg"
+            android:padding="10dp"
+            android:textSize="16sp"
+            android:layout_margin="8dp"
+            android:textColor="@android:color/black"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#E0E0E0"
+            android:layout_marginLeft="8dp"
+            android:layout_marginRight="8dp"/>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="8dp"
+            android:radius="12dp"
+            android:elevation="2dp">
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/stopRecyclerViewDialog"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="80dp"
+                android:maxHeight="240dp"
+                android:padding="6dp"/>
+        </androidx.cardview.widget.CardView>
+
+        <LinearLayout
+            android:id="@+id/dialogTopStopsLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="8dp"
+            android:gravity="start"
+            android:layout_marginLeft="8dp"
+            android:layout_marginRight="8dp"/>
+    </LinearLayout>
+</ScrollView> 

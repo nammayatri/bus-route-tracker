@@ -43,7 +43,6 @@ import com.google.android.gms.location.*
 import android.widget.Spinner
 import android.view.LayoutInflater
 import android.widget.FrameLayout
-import android.view.ViewGroup
 import android.view.WindowManager
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
@@ -53,6 +52,10 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import android.widget.AutoCompleteTextView
 import android.view.inputmethod.InputMethodManager
 import android.provider.Settings
+import android.widget.ScrollView
+import android.view.ViewGroup
+import android.location.LocationManager
+import android.net.Uri
 
 data class StopDisplayItem(
     val stopName: String,
@@ -81,6 +84,15 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // Check if location is enabled, prompt if not
+        if (!isLocationEnabled()) {
+            promptEnableLocation()
+        }
+        // Check if location permission is granted, prompt if not
+        if (!PermissionHelper.hasAllLocationPermissions(this)) {
+            promptLocationPermission()
+        }
 
         routeSelectButton = findViewById(R.id.routeSelectButton)
         submitButton = findViewById(R.id.submitButton)
@@ -468,7 +480,6 @@ class MainActivity : AppCompatActivity() {
                 put("device_name", deviceName ?: JSONObject.NULL)
                 put("app_version", appVersion ?: JSONObject.NULL)
             }
-            Log.d("MainActivity", "Logging stop with payload: $json")
             val url = "${Constants.BASE_URL}/routeTrackerApi/record"
             val body = json.toString().toRequestBody("application/json".toMediaType())
             NetworkHelper.authenticatedRequest(
@@ -518,8 +529,10 @@ class MainActivity : AppCompatActivity() {
             setPadding(32, 24, 32, 24)
             visibility = View.GONE
         }
-        (sheetView as ViewGroup).addView(loadingText)
-        (sheetView as ViewGroup).addView(retryButton)
+        // Fix: Add to the inner LinearLayout, not the ScrollView
+        val innerLayout = (sheetView as ScrollView).getChildAt(0) as LinearLayout
+        innerLayout.addView(loadingText)
+        innerLayout.addView(retryButton)
 
         fun updateRoutesUI() {
             if (routes.isEmpty()) {
@@ -610,16 +623,58 @@ class MainActivity : AppCompatActivity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 1001 && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-            val serviceIntent = Intent(this, LocationService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(serviceIntent)
+        if (requestCode == 1001) {
+            if (grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                // Permission granted, proceed with location features
             } else {
-                startService(serviceIntent)
+                // Permission denied, show dialog to open settings
+                showPermissionSettingsDialog()
             }
-        } else if (requestCode == 1001) {
-            Toast.makeText(this, "Location permission is required for location updates.", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun showPermissionSettingsDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Permission Required")
+            .setMessage("Location permission is required. Open app settings to grant permission?")
+            .setPositiveButton("Open Settings") { _, _ ->
+                val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                intent.data = Uri.fromParts("package", packageName, null)
+                startActivity(intent)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    // Helper to check if location is enabled
+    private fun isLocationEnabled(): Boolean {
+        val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+               locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+    }
+
+    // Helper to prompt user to enable location
+    private fun promptEnableLocation() {
+        AlertDialog.Builder(this)
+            .setTitle("Enable Location")
+            .setMessage("Location is turned off. Enable location to continue?")
+            .setPositiveButton("Yes") { _, _ ->
+                startActivity(Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+            }
+            .setNegativeButton("No", null)
+            .show()
+    }
+
+    // Helper to prompt user to enable location permission
+    private fun promptLocationPermission() {
+        AlertDialog.Builder(this)
+            .setTitle("Location Permission Required")
+            .setMessage("This app needs location permission to work. Grant permission?")
+            .setPositiveButton("Yes") { _, _ ->
+                PermissionHelper.requestLocationPermissions(this, 1001)
+            }
+            .setNegativeButton("No", null)
+            .show()
     }
 }
 

@@ -111,7 +111,7 @@ def token_required(f):
 
 @app.route('/routeTrackerApi/test')
 def test():
-    return jsonify({'Welcome to the Bus Stop Tracker'})
+    return jsonify({'Success': "Welcome to the Bus Stop Tracker"})
 
 @app.route('/routeTrackerApi/routes')
 @token_required

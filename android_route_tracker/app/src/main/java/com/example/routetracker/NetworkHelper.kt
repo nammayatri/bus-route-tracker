@@ -5,7 +5,7 @@ import android.util.Log
 import java.io.IOException
 
 object NetworkHelper {
-    private val client = OkHttpClient.Builder()
+    val client = OkHttpClient.Builder()
         .addInterceptor { chain ->
             val original = chain.request()
             val requestBuilder = original.newBuilder()
@@ -14,6 +14,7 @@ object NetworkHelper {
             val request = requestBuilder.build()
             chain.proceed(request)
         }
+        .hostnameVerifier { _, _ -> true } // Disable hostname verification (INSECURE, for testing only)
         .build()
 
     fun get(url: String, headers: Map<String, String> = emptyMap(), onSuccess: (String) -> Unit, onError: (Exception) -> Unit) {
