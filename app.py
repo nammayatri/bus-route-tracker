@@ -140,7 +140,10 @@ def record_stop():
         'latitude': data['lat'],
         'longitude': data['lon'],
         'timestamp': datetime.now().isoformat(),
-        'type': record_type
+        'type': record_type,
+        'device_id': data.get('device_id'),
+        'device_name': data.get('device_name'),
+        'app_version': data.get('app_version')
     }
     
     if USE_CLICKHOUSE:
@@ -149,7 +152,7 @@ def record_stop():
             client.execute(
                 f'''
                 INSERT INTO {CLICKHOUSE_DB}.bus_stop_location_data 
-                (id, route_id, stop_id, stop_name, latitude, longitude, timestamp, type)
+                (id, route_id, stop_id, stop_name, latitude, longitude, timestamp, type, device_id, device_name, app_version)
                 VALUES
                 ''',
                 [(
@@ -160,10 +163,13 @@ def record_stop():
                     record['latitude'] if record['latitude'] is not None else 0.0,
                     record['longitude'] if record['longitude'] is not None else 0.0,
                     datetime.fromisoformat(record['timestamp'].replace('Z', '+00:00')),
-                    record['type'] or ''
+                    record['type'] or '',
+                    record.get('device_id'),
+                    record.get('device_name'),
+                    record.get('app_version')
                 )]
             )
-            print(f"Stop record: {record['stop_id']}, {record['stop_name']} at {record['timestamp']} (type={record['type']})")
+            print(f"Stop record: {record['stop_id']}, {record['stop_name']} at {record['timestamp']} (type={record['type']}) device_id={record.get('device_id')} device_name={record.get('device_name')} app_version={record.get('app_version')}")
         except Exception as e:
             print(f"ClickHouse error, using local storage: {e}")
             local_data = load_local_data()
@@ -192,7 +198,10 @@ def location_update():
         'latitude': data.get('lat'),
         'longitude': data.get('lon'),
         'timestamp': data.get('timestamp'),
-        'type': 'LOCATION_RECORD'
+        'type': 'LOCATION_RECORD',
+        'device_id': data.get('device_id'),
+        'device_name': data.get('device_name'),
+        'app_version': data.get('app_version')
     }
     if USE_CLICKHOUSE:
         try:
@@ -200,7 +209,7 @@ def location_update():
             client.execute(
                 f'''
                 INSERT INTO {CLICKHOUSE_DB}.bus_stop_location_data 
-                (id, route_id, stop_id, stop_name, latitude, longitude, timestamp, type)
+                (id, route_id, stop_id, stop_name, latitude, longitude, timestamp, type, device_id, device_name, app_version)
                 VALUES
                 ''',
                 [(
@@ -211,10 +220,13 @@ def location_update():
                     log_entry['latitude'] if log_entry['latitude'] is not None else 0.0,
                     log_entry['longitude'] if log_entry['longitude'] is not None else 0.0,
                     datetime.fromisoformat(log_entry['timestamp'].replace('Z', '+00:00')),
-                    log_entry['type'] or ''
+                    log_entry['type'] or '',
+                    log_entry.get('device_id'),
+                    log_entry.get('device_name'),
+                    log_entry.get('app_version')
                 )]
             )
-            print(f"Location update: {data.get('lat')}, {data.get('lon')} at {data.get('timestamp')}")
+            print(f"Location update: {data.get('lat')}, {data.get('lon')} at {data.get('timestamp')} device_id={log_entry.get('device_id')} device_name={log_entry.get('device_name')} app_version={log_entry.get('app_version')}")
         except Exception as e:
             print(f"ClickHouse error, using local storage: {e}")
             local_data = load_local_data()

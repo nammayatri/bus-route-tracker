@@ -52,6 +52,7 @@ import android.widget.ListView
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import android.widget.AutoCompleteTextView
 import android.view.inputmethod.InputMethodManager
+import android.provider.Settings
 
 data class StopDisplayItem(
     val stopName: String,
@@ -453,6 +454,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun logStop(routeId: String, stopId: String, stopName: String, lat: Double, lon: Double, type: String) {
         try {
+            val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+            val appVersion = packageManager.getPackageInfo(packageName, 0).versionName
+            val deviceName = Build.MODEL
             val json = JSONObject().apply {
                 put("route_id", routeId)
                 put("stop_id", stopId)
@@ -460,6 +464,9 @@ class MainActivity : AppCompatActivity() {
                 put("lat", lat)
                 put("lon", lon)
                 put("type", type)
+                put("device_id", deviceId ?: JSONObject.NULL)
+                put("device_name", deviceName ?: JSONObject.NULL)
+                put("app_version", appVersion ?: JSONObject.NULL)
             }
             Log.d("MainActivity", "Logging stop with payload: $json")
             val url = "${Constants.BASE_URL}/routeTrackerApi/record"

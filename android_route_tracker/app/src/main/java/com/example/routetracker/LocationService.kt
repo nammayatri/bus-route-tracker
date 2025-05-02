@@ -13,6 +13,7 @@ import android.location.Location
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
@@ -21,7 +22,6 @@ import com.example.routetracker.NetworkHelper
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import org.json.JSONObject
-import java.io.IOException
 
 class LocationService : Service() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -148,6 +148,10 @@ class LocationService : Service() {
         val stopId = sharedPrefs.getString("stop_id", null)
         val stopName = sharedPrefs.getString("stop_name", null)
         val timestamp = java.time.Instant.ofEpochMilli(location.time).toString() // ISO8601
+        val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+        val packageManager = packageManager
+        val appVersion = packageManager.getPackageInfo(packageName, 0).versionName
+        val deviceName = Build.MODEL
         val json = JSONObject().apply {
             put("lat", location.latitude)
             put("lon", location.longitude)
@@ -155,6 +159,9 @@ class LocationService : Service() {
             if (routeId != null) put("route_id", routeId)
             if (stopId != null) put("stop_id", stopId)
             if (stopName != null) put("stop_name", stopName)
+            put("device_id", deviceId ?: JSONObject.NULL)
+            put("device_name", deviceName ?: JSONObject.NULL)
+            put("app_version", appVersion ?: JSONObject.NULL)
         }
         val url = "${Constants.BASE_URL}/routeTrackerApi/location-update"
         val body = RequestBody.create("application/json".toMediaType(), json.toString())
