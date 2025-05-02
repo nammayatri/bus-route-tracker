@@ -650,7 +650,7 @@ async function startRecording() {
             {
                 enableHighAccuracy: true,
                 timeout: 15000,
-                maximumAge: 0
+                maximumAge: 5000
             }
         );
     }

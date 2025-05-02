@@ -9,16 +9,16 @@
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="24dp"
-        app:cardCornerRadius="22dp"
-        app:cardElevation="6dp">
+        android:layout_margin="0dp"
+        app:cardCornerRadius="32dp"
+        app:cardElevation="10dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingStart="32dp"
-            android:paddingEnd="32dp">
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
 
             <!-- Title and Close Icon Row -->
             <LinearLayout
@@ -26,20 +26,21 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:paddingTop="16dp"
-                android:paddingBottom="8dp">
+                android:paddingTop="24dp"
+                android:paddingBottom="16dp">
                 <TextView
                     android:id="@+id/dropdownDialogTitle"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Title"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
+                    android:textSize="26sp"
+                    android:textStyle="bold"
                     android:textColor="@color/black"/>
                 <ImageButton
                     android:id="@+id/dropdownDialogClose"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@android:drawable/ic_menu_close_clear_cancel"
                     android:contentDescription="Close"
@@ -52,10 +53,10 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="0dp"
                 app:boxBackgroundMode="filled"
-                app:boxCornerRadiusTopStart="18dp"
-                app:boxCornerRadiusTopEnd="18dp"
-                app:boxCornerRadiusBottomStart="18dp"
-                app:boxCornerRadiusBottomEnd="18dp"
+                app:boxCornerRadiusTopStart="28dp"
+                app:boxCornerRadiusTopEnd="28dp"
+                app:boxCornerRadiusBottomStart="28dp"
+                app:boxCornerRadiusBottomEnd="28dp"
                 app:startIconDrawable="@android:drawable/ic_menu_search"
                 app:hintEnabled="true"
                 app:hintAnimationEnabled="true">
@@ -65,23 +66,23 @@
                     android:layout_height="wrap_content"
                     android:hint="Search..."
                     android:inputType="text"
-                    android:textSize="16sp"
-                    android:padding="14dp"/>
+                    android:textSize="22sp"
+                    android:padding="22dp"/>
             </com.google.android.material.textfield.TextInputLayout>
 
             <!-- Divider -->
             <View
                 android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="12dp"
-                android:layout_marginBottom="8dp"
+                android:layout_height="2dp"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="16dp"
                 android:background="#E0E0E0"/>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/dropdownRecyclerView"
                 android:layout_width="match_parent"
-                android:layout_height="360dp"
-                android:padding="10dp"/>
+                android:layout_height="480dp"
+                android:padding="18dp"/>
 
             <!-- Empty state message -->
             <TextView
@@ -89,9 +90,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:padding="16dp"
+                android:padding="24dp"
                 android:text="No items found."
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+                android:textSize="20sp"
                 android:textColor="@color/gray"
                 android:visibility="gone"/>
         </LinearLayout>
