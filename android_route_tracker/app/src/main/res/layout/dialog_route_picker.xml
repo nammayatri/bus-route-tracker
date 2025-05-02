@@ -1,19 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="24dp">
 
     <EditText
         android:id="@+id/routeSearchEdit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="Search route..."
-        android:inputType="text" />
+        android:inputType="text"
+        android:drawableStart="@android:drawable/ic_menu_search"
+        android:drawablePadding="8dp"
+        android:padding="12dp"
+        android:textSize="18sp"
+        android:background="@android:color/white"
+        android:elevation="2dp" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/routeRecyclerView"
         android:layout_width="match_parent"
-        android:layout_height="300dp"
-        android:layout_marginTop="12dp"/>
+        android:layout_height="400dp"
+        android:layout_marginTop="16dp"
+        android:background="@android:color/white" />
+
 </LinearLayout> 

@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Bus Stop Tracker</string>
+    <string name="route_prompt">Select Route</string>
+    <string name="stop_prompt">Select Stop</string>
 </resources>

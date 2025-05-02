@@ -1,269 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="24dp">
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp">
 
-    <!-- Header Row: Online Status (left) and Logout (right) -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/headerRow"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="8dp">
-
-        <!-- Online Status at left -->
-        <LinearLayout
-            android:id="@+id/onlineStatusLayout"
-            android:layout_width="wrap_content"
-            android:layout_height="48dp"
-            android:orientation="horizontal"
-            android:gravity="start|center_vertical"
-            android:paddingStart="8dp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent">
-            <View
-                android:layout_width="12dp"
-                android:layout_height="12dp"
-                android:background="@drawable/green_dot"
-                android:layout_marginEnd="8dp"
-                android:layout_gravity="center_vertical"/>
-            <TextView
-                android:id="@+id/onlineStatusText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Online"
-                android:textColor="#43A047"
-                android:textSize="16sp"
-                android:textStyle="bold"/>
-        </LinearLayout>
-
-        <!-- Logout Button at right -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/logoutButton"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:text=""
-            android:padding="6dp"
-            android:insetLeft="0dp"
-            android:insetRight="0dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            app:icon="@android:drawable/ic_lock_power_off"
-            app:iconGravity="top"
-            app:iconTint="#FFFFFF"
-            app:iconSize="26dp"
-            app:backgroundTint="#E53935"
-            app:cornerRadius="24dp"
-            android:elevation="12dp"
-            android:layout_marginEnd="16dp"
-            android:contentDescription="Logout"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"/>    </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <!-- Route Selector -->
-    <TextView
-        android:id="@+id/routeField"
-        android:layout_width="0dp"
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/routeSelectButton"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Select Route"
-        android:textColor="#222"
-        android:textSize="30sp"
+        android:textSize="28sp"
         android:textStyle="bold"
-        android:background="@drawable/rounded_card_bg"
-        android:paddingStart="32dp"
-        android:paddingEnd="56dp"
-        android:paddingTop="20dp"
-        android:paddingBottom="20dp"
-        android:drawableEnd="@android:drawable/arrow_down_float"
-        android:gravity="center_vertical|start"
-        app:layout_constraintTop_toBottomOf="@id/headerRow"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="16dp"
-        android:maxLines="3"
-        android:minHeight="64dp"
-        android:ellipsize="end"
-        android:elevation="6dp"/>
+        android:padding="24dp"
+        android:backgroundTint="@color/primary"
+        android:textColor="@android:color/white"
+        android:layout_marginBottom="48dp"
+        android:elevation="6dp"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="start|center_vertical"
+        android:maxLines="5"
+        android:ellipsize="none"
+        android:singleLine="false"
+        android:scrollHorizontally="false"
+        app:icon="@drawable/ic_arrow_drop_down"
+        app:iconGravity="textEnd"
+        app:iconPadding="16dp"
+        app:strokeColor="@color/black"
+        app:strokeWidth="2dp" />
 
-    <!-- Nearest Stop Display -->
-    <LinearLayout
-        android:id="@+id/nearestStopLayout"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="#FFFFFF"
-        android:padding="30dp"
-        android:gravity="center"
-        android:elevation="8dp"
-        app:layout_constraintTop_toBottomOf="@id/routeField"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="82dp"
-        android:layout_marginBottom="24dp"
-        android:backgroundTint="#F5F5F5"
-        android:clipToOutline="true">
-
-        <TextView
-            android:id="@+id/nearestStopLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Nearest Stop"
-            android:textColor="#43A047"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:layout_marginBottom="10dp"/>
-        <TextView
-            android:id="@+id/nearestStopName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="--"
-            android:textColor="#222"
-            android:textSize="40sp"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:layout_marginTop="10dp"
-            android:layout_marginBottom="10dp"/>
-        <TextView
-            android:id="@+id/nearestStopDistance"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="--"
-            android:textColor="#666"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:layout_marginTop="6dp"/>
-    </LinearLayout>
-
-    <!-- Bottom Section: Record Stop/Incorrect Buttons -->
-    <LinearLayout
-        android:id="@+id/bottomButtonLayout"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginBottom="40dp">
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/incorrectButton"
-            android:layout_width="0dp"
-            android:layout_height="88dp"
-            android:layout_weight="1"
-            android:text=""
-            app:icon="@drawable/ic_close"
-            app:iconTint="#FFFFFF"
-            app:iconSize="56dp"
-            app:iconGravity="textStart"
-            app:backgroundTint="#E53935"
-            android:elevation="8dp"
-            android:layout_marginEnd="18dp"
-            android:padding="18dp"/>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/correctButton"
-            android:layout_width="0dp"
-            android:layout_height="88dp"
-            android:layout_weight="1"
-            android:text=""
-            app:icon="@drawable/ic_checkmark"
-            app:iconTint="#FFFFFF"
-            app:iconSize="56dp"
-            app:iconGravity="textStart"
-            app:backgroundTint="#43A047"
-            android:elevation="8dp"
-            android:layout_marginStart="18dp"
-            android:padding="10dp"/>
-    </LinearLayout>
-
-    <!-- Incorrect Section: Hidden by default -->
-    <LinearLayout
-        android:id="@+id/incorrectSection"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="#FFFFFF"
-        android:padding="30dp"
-        android:visibility="gone"
-        android:elevation="8dp"
-        app:layout_constraintBottom_toTopOf="@id/bottomButtonLayout"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+    <Button
+        android:id="@+id/submitButton"
+        android:layout_width="match_parent"
+        android:layout_height="216dp"
+        android:text="Submit"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        android:padding="32dp"
+        android:backgroundTint="@color/submit_button_bg"
+        android:textColor="@android:color/white"
+        android:layout_marginTop="32dp"
         android:layout_marginBottom="32dp"
-        android:backgroundTint="#F5F5F5"
-        android:clipToOutline="true">
+        android:elevation="6dp"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Select Stop"
-            android:textColor="#222"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="8dp"/>
-
-        <!-- Stop Dropdown as a large boxed TextView with search -->
-        <TextView
-            android:id="@+id/stopDropdownField"
-            android:layout_width="match_parent"
-            android:layout_height="64dp"
-            android:text="Select Stop"
-            android:textColor="#222"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:background="@drawable/rounded_card_bg"
-            android:paddingStart="32dp"
-            android:paddingEnd="56dp"
-            android:paddingTop="16dp"
-            android:paddingBottom="16dp"
-            android:drawableEnd="@android:drawable/ic_menu_search"
-            android:gravity="center_vertical|start"
-            android:layout_marginTop="12dp"
-            android:elevation="4dp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Enter stop if not found:"
-            android:textColor="#222"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:layout_marginTop="24dp"/>
-
-        <EditText
-            android:id="@+id/manualStopEdit"
-            android:layout_width="match_parent"
-            android:layout_height="64dp"
-            android:hint="Enter stop name"
-            android:inputType="text"
-            android:background="@drawable/rounded_card_bg"
-            android:padding="20dp"
-            android:textSize="20sp"
-            android:layout_marginTop="12dp"
-            android:textColor="#222"/>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/submitIncorrectButton"
-            android:layout_width="match_parent"
-            android:layout_height="72dp"
-            android:text="Submit"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            app:cornerRadius="24dp"
-            app:backgroundTint="#43A047"
-            android:textColor="#FFFFFF"
-            android:elevation="6dp"
-            android:layout_marginTop="24dp"
-            android:padding="16dp"/>
-    </LinearLayout>
-
-</androidx.constraintlayout.widget.ConstraintLayout> 
+</LinearLayout> 

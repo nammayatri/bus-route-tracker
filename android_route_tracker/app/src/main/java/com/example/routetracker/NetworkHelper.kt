@@ -1,10 +1,20 @@
 package com.example.routetracker
 
 import okhttp3.*
+import android.util.Log
 import java.io.IOException
 
 object NetworkHelper {
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .addInterceptor { chain ->
+            val original = chain.request()
+            val requestBuilder = original.newBuilder()
+            // Always add the Session-Api-Token header
+            requestBuilder.addHeader("Session-Api-Token", Constants.SESSION_API_TOKEN)
+            val request = requestBuilder.build()
+            chain.proceed(request)
+        }
+        .build()
 
     fun get(url: String, headers: Map<String, String> = emptyMap(), onSuccess: (String) -> Unit, onError: (Exception) -> Unit) {
         val requestBuilder = Request.Builder().url(url)
@@ -38,8 +48,8 @@ object NetworkHelper {
         })
     }
 
-    fun authenticatedRequest(url: String, method: String, sessionCookie: String, body: RequestBody? = null, onSuccess: (String) -> Unit, onError: (Exception) -> Unit) {
-        val builder = Request.Builder().url(url).addHeader("Cookie", sessionCookie)
+    fun authenticatedRequest(url: String, method: String, token: String, body: RequestBody? = null, onSuccess: (String) -> Unit, onError: (Exception) -> Unit) {
+        val builder = Request.Builder().url(url)
         if (method == "POST" && body != null) builder.post(body)
         val request = builder.build()
         client.newCall(request).enqueue(object : Callback {
