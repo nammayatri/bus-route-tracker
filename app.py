@@ -61,6 +61,7 @@ API_CITY = config.get('API_CITY', 'chennai')
 API_VEHICLE_TYPE = config.get('API_VEHICLE_TYPE', 'bus')
 USE_CLICKHOUSE = config.get('USE_CLICKHOUSE', False)
 CLICKHOUSE_DB = config.get('CH_DB', 'default')
+SESSION_API_TOKEN = config.get('SESSION_API_TOKEN', 'some_random_token')
 
 def load_local_data():
     try:
@@ -99,52 +100,22 @@ def get_clickhouse_client():
         database=config.get('CH_DB', 'default')
     )
 
-def login_required(f):
+def token_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'user_id' not in session:
+        token = request.headers.get('Session-Api-Token')
+        if not token or token != SESSION_API_TOKEN:
             return jsonify({'error': 'Unauthorized'}), 401
         return f(*args, **kwargs)
     return decorated_function
 
-def load_users():
-    try:
-        with open('users.json', 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
-
-APP_CONFIG = load_users()
-
-@app.route('/')
-def home():
-    return redirect(url_for('login'))
-
-@app.route('/routeTrackerApi/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'GET':
-        return render_template('login.html')
-    data = request.get_json()
-    password = data.get('password')
-    if APP_CONFIG.get(password):
-        session.permanent = True  # Make session permanent until logout
-        session['user_id'] = APP_CONFIG.get(password)
-        return jsonify({'success': True})
-    else:   
-        return jsonify({'error': 'Invalid credentials'}), 401
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login'))
-
 @app.route('/routeTrackerApi/routes')
-@login_required
+@token_required
 def get_routes():
     return jsonify(get_cached_routes())
 
 @app.route('/routeTrackerApi/stops')
-@login_required
+@token_required
 def get_stops():
     route_id = request.args.get('route_id')
     if not route_id:
@@ -152,7 +123,7 @@ def get_stops():
     return jsonify(get_cached_stops(route_id))
 
 @app.route('/routeTrackerApi/record', methods=['POST'])
-@login_required
+@token_required
 def record_stop():
     data = request.get_json()
     required_fields = ['route_id', 'stop_id', 'stop_name', 'lat', 'lon']
@@ -160,6 +131,7 @@ def record_stop():
     if not all(field in data for field in required_fields):
         return jsonify({'error': 'Missing required fields'}), 400
     
+    record_type = data.get('type', 'STOP_RECORD')
     record = {
         'id': str(uuid.uuid4()),
         'route_id': data['route_id'],
@@ -167,9 +139,8 @@ def record_stop():
         'stop_name': data['stop_name'],
         'latitude': data['lat'],
         'longitude': data['lon'],
-        'user_id': session['user_id'],
         'timestamp': datetime.now().isoformat(),
-        'type': 'STOP_RECORD'
+        'type': record_type
     }
     
     if USE_CLICKHOUSE:
@@ -178,22 +149,21 @@ def record_stop():
             client.execute(
                 f'''
                 INSERT INTO {CLICKHOUSE_DB}.bus_stop_location_data 
-                (id, route_id, stop_id, stop_name, latitude, longitude, user_id, timestamp, type)
+                (id, route_id, stop_id, stop_name, latitude, longitude, timestamp, type)
                 VALUES
                 ''',
                 [(
-                    record['id'] or '',
-                    record['route_id'] or '',
-                    record['stop_id'] or '',
-                    record['stop_name'] or '',
+                    record['id'],
+                    record['route_id'],
+                    record['stop_id'],
+                    record['stop_name'],
                     record['latitude'] if record['latitude'] is not None else 0.0,
                     record['longitude'] if record['longitude'] is not None else 0.0,
-                    record['user_id'] or '',
                     datetime.fromisoformat(record['timestamp'].replace('Z', '+00:00')),
                     record['type'] or ''
                 )]
             )
-            print(f"Stop record from user {session['user_id']}: {record['stop_id']}, {record['stop_name']} at {record['timestamp']}")
+            print(f"Stop record: {record['stop_id']}, {record['stop_name']} at {record['timestamp']} (type={record['type']})")
         except Exception as e:
             print(f"ClickHouse error, using local storage: {e}")
             local_data = load_local_data()
@@ -211,13 +181,11 @@ def record_bus_data():
     return send_from_directory('static', 'index.html')
 
 @app.route('/routeTrackerApi/location-update', methods=['POST'])
-@login_required
+@token_required
 def location_update():
     data = request.get_json()
-    user_id = session.get('user_id')
     log_entry = {
         'id': str(uuid.uuid4()),
-        'user_id': user_id,
         'route_id': data.get('route_id'),
         'stop_id': data.get('stop_id'),
         'stop_name': data.get('stop_name'),
@@ -232,12 +200,11 @@ def location_update():
             client.execute(
                 f'''
                 INSERT INTO {CLICKHOUSE_DB}.bus_stop_location_data 
-                (id, user_id, route_id, stop_id, stop_name, latitude, longitude, timestamp, type)
+                (id, route_id, stop_id, stop_name, latitude, longitude, timestamp, type)
                 VALUES
                 ''',
                 [(
                     log_entry['id'],
-                    log_entry['user_id'],
                     log_entry['route_id'] or '',
                     log_entry['stop_id'] or '',
                     log_entry['stop_name'] or '',
@@ -247,7 +214,7 @@ def location_update():
                     log_entry['type'] or ''
                 )]
             )
-            print(f"Location update from user {user_id}: {data.get('lat')}, {data.get('lon')} at {data.get('timestamp')}")
+            print(f"Location update: {data.get('lat')}, {data.get('lon')} at {data.get('timestamp')}")
         except Exception as e:
             print(f"ClickHouse error, using local storage: {e}")
             local_data = load_local_data()
@@ -261,7 +228,7 @@ def location_update():
             local_data['location_updates'] = []
         local_data['location_updates'].append(log_entry)
         save_local_data(local_data)
-    print(f"Location update from user {user_id}: {data.get('lat')}, {data.get('lon')} at {data.get('timestamp')}")
+    print(f"Location update: {data.get('lat')}, {data.get('lon')} at {data.get('timestamp')}")
     return jsonify({'success': True})
 
 def fetch_routes_from_api():
@@ -331,6 +298,11 @@ def get_cached_stops(route_id):
             'timestamp': now
         }
     return route_cache['stops'][route_id]['data']
+
+@app.route('/routeTrackerApi/configs/<city>/<vehicle_type>')
+def get_configs(city, vehicle_type):
+    return jsonify(config.get(city, {}).get(vehicle_type, {}))
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8000)

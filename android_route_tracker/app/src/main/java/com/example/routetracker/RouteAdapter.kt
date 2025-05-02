@@ -18,7 +18,9 @@ class RouteAdapter(
 ) : RecyclerView.Adapter<RouteAdapter.RouteViewHolder>() {
 
     inner class RouteViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        val routeText: TextView = itemView.findViewById(R.id.routeText)
+        val codeText: TextView = itemView.findViewById(R.id.routeCodeText)
+        val startText: TextView = itemView.findViewById(R.id.routeStartText)
+        val endText: TextView = itemView.findViewById(R.id.routeEndText)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RouteViewHolder {
@@ -29,7 +31,9 @@ class RouteAdapter(
 
     override fun onBindViewHolder(holder: RouteViewHolder, position: Int) {
         val route = routes[position]
-        holder.routeText.text = "${route.routeCode} | ${route.routeStart} -> ${route.routeEnd}"
+        holder.codeText.text = route.routeCode
+        holder.startText.text = route.routeStart
+        holder.endText.text = route.routeEnd
         holder.itemView.setOnClickListener { onRouteClick(route) }
     }
 

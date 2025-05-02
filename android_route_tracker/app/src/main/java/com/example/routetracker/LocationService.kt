@@ -131,12 +131,8 @@ class LocationService : Service() {
     }
 
     private fun sendLocationToServer(location: Location) {
-        val sharedPrefs = getSharedPreferences("Auth", Context.MODE_PRIVATE)
-        val sessionCookie = sharedPrefs.getString("session", null)
-        if (sessionCookie == null) {
-            return
-        }
         // Try to get route/stop info if available
+        val sharedPrefs = getSharedPreferences("Auth", Context.MODE_PRIVATE)
         val routeId = sharedPrefs.getString("route_id", null)
         val stopId = sharedPrefs.getString("stop_id", null)
         val stopName = sharedPrefs.getString("stop_name", null)
@@ -154,7 +150,7 @@ class LocationService : Service() {
         NetworkHelper.authenticatedRequest(
             url,
             "POST",
-            sessionCookie,
+            Constants.SESSION_API_TOKEN,
             body,
             onSuccess = {},
             onError = { /* Optionally log error */ }

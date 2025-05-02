@@ -12,11 +12,7 @@ class SplashActivity : AppCompatActivity() {
         setContentView(R.layout.activity_splash)
 
         Handler(Looper.getMainLooper()).postDelayed({
-            if (SessionHelper.hasSession(this)) {
-                startActivity(Intent(this, MainActivity::class.java))
-            } else {
-                startActivity(Intent(this, LoginActivity::class.java))
-            }
+            startActivity(Intent(this, MainActivity::class.java))
             finish()
         }, 2000) // 2 seconds
     }
