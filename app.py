@@ -38,7 +38,7 @@ def load_config():
 
 config = load_config()
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", template_folder="templates")
 app.secret_key = config["SECRET_KEY"]
 app.permanent_session_lifetime = timedelta(days=365)  # Effectively permanent
 

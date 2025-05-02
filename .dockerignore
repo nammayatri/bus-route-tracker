@@ -3,3 +3,4 @@ assets/
 .gitignore
 .dockerignore
 config/config.json
+android_route_tracker/
