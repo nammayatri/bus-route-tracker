@@ -67,7 +67,8 @@
                     android:hint="Search..."
                     android:inputType="text"
                     android:textSize="22sp"
-                    android:padding="22dp"/>
+                    android:padding="22dp"
+                    android:textColor="@android:color/black"/>
             </com.google.android.material.textfield.TextInputLayout>
 
             <!-- Divider -->
