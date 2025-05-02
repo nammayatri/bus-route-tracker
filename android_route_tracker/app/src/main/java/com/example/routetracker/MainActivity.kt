@@ -44,6 +44,13 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import android.view.View
 import android.widget.ImageButton
 import com.google.android.gms.location.*
+import android.widget.Spinner
+import android.view.LayoutInflater
+import android.widget.FrameLayout
+import android.view.ViewGroup
+import android.view.WindowManager
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 
 data class StopDisplayItem(
     val stopName: String,
@@ -60,13 +67,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var routeField: TextView
-    private lateinit var recordButton: MaterialButton
-    private lateinit var statusText: TextView
-    private lateinit var logoutButton: MaterialButton
-    private lateinit var toggleLocationButton: MaterialButton
-    private lateinit var currentLocationText: TextView
-    private lateinit var stopField: TextView
-    private lateinit var topStopsLayout: LinearLayout
+    private lateinit var nearestStopName: TextView
+    private lateinit var nearestStopDistance: TextView
+    private lateinit var correctButton: MaterialButton
+    private lateinit var incorrectButton: MaterialButton
+    private lateinit var incorrectSection: LinearLayout
+    private lateinit var manualStopEdit: EditText
+    private lateinit var submitIncorrectButton: MaterialButton
+    private lateinit var bottomButtonLayout: LinearLayout
+    private lateinit var stopDropdownField: TextView
 
     private var routes: List<JSONObject> = listOf()
     private var stops: List<JSONObject> = listOf()
@@ -78,6 +87,7 @@ class MainActivity : AppCompatActivity() {
     private var selectedStop: StopDisplayItem? = null
     private var lastSentLocation: Location? = null
     private var isBackendUpdateInProgress = false
+    private var selectedIncorrectStop: StopDisplayItem? = null
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
@@ -87,74 +97,51 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         routeField = findViewById(R.id.routeField)
-        recordButton = findViewById(R.id.recordButton)
-        statusText = findViewById(R.id.statusText)
-        logoutButton = findViewById(R.id.logoutButton)
-        toggleLocationButton = findViewById(R.id.toggleLocationButton)
-        currentLocationText = findViewById(R.id.currentLocationText)
-        stopField = findViewById(R.id.stopField)
-        topStopsLayout = findViewById(R.id.topStopsLayout)
+        nearestStopName = findViewById(R.id.nearestStopName)
+        nearestStopDistance = findViewById(R.id.nearestStopDistance)
+        correctButton = findViewById(R.id.correctButton)
+        incorrectButton = findViewById(R.id.incorrectButton)
+        incorrectSection = findViewById(R.id.incorrectSection)
+        manualStopEdit = findViewById(R.id.manualStopEdit)
+        submitIncorrectButton = findViewById(R.id.submitIncorrectButton)
+        bottomButtonLayout = findViewById(R.id.bottomButtonLayout)
+        stopDropdownField = findViewById(R.id.stopDropdownField)
 
-        setupUI()
-        checkAndRequestPermissions()
-        registerNetworkReceiver()
-        checkBatteryStatus()
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-        locationCallback = object : LocationCallback() {
-            override fun onLocationResult(locationResult: LocationResult) {
-                val location = locationResult.lastLocation
-                if (location != null) {
-                    lastKnownLocation = location
-                    updateCurrentLocationText(location)
-                    updateStopListWithFilter(findViewById<EditText>(R.id.stopSearchEdit)?.text?.toString() ?: "")
-                    // Do NOT sendLocationUpdate from MainActivity; backend updates are handled by LocationService
-                }
-            }
-        }
-        startLocationUpdatesEvery3Sec()
-
+        val logoutButton = findViewById<MaterialButton>(R.id.logoutButton)
+        logoutButton.iconGravity = 1
         logoutButton.setOnClickListener {
             getSharedPreferences("Auth", MODE_PRIVATE).edit().clear().apply()
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
         }
 
-        toggleLocationButton.setOnClickListener {
-            if (isTracking) {
-                stopLocationTracking()
-            } else {
-                startLocationTracking()
-            }
-        }
-
-        routeField.setOnClickListener { showRoutePickerDialog() }
-
-        recordButton.setOnClickListener {
-            // Show Material loader dialog while fetching location
-            val loaderView = layoutInflater.inflate(R.layout.dialog_loader, null)
-            val loaderDialog = MaterialAlertDialogBuilder(this)
-                .setView(loaderView)
-                .setCancelable(false)
-                .create()
-            loaderDialog.show()
-            LocationHelper.fetchFreshOrLastLocation(this) { location ->
-                loaderDialog.dismiss()
+        setupUI()
+        checkAndRequestPermissions()
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                val location = locationResult.lastLocation
                 if (location != null) {
                     lastKnownLocation = location
-                    confirmAndRecordStop()
-                } else {
-                    ToastHelper.show(this, "Could not fetch current location. Please try again.")
+                    updateNearestStopDisplay()
                 }
             }
         }
+        startLocationUpdatesEvery3Sec()
 
-        stopField.setOnClickListener {
-            if (selectedRouteId != null) {
-                showStopPickerDialog()
-            } else {
-                ToastHelper.show(this, "Please select a route first")
-            }
+        routeField.setOnClickListener { showRoutePickerDialog() }
+        correctButton.setOnClickListener { handleCorrect() }
+        incorrectButton.setOnClickListener {
+            bottomButtonLayout.visibility = View.GONE
+            showIncorrectSection()
         }
+        submitIncorrectButton.setOnClickListener {
+            handleIncorrectSubmit()
+            incorrectSection.visibility = View.GONE
+            bottomButtonLayout.visibility = View.VISIBLE
+        }
+        incorrectSection.visibility = View.GONE
+        stopDropdownField.setOnClickListener { showStopDropdownDialog() }
     }
 
     private fun setupUI() {
@@ -195,15 +182,11 @@ class MainActivity : AppCompatActivity() {
                     startService(intent)
                 }
                 isTracking = true
-                updateUIForTrackingState()
-                updateOnlineStatus()
                 Toast.makeText(this, "Location tracking started", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Log.e("MainActivity", "Failed to start location tracking: ", e)
                 Toast.makeText(this, "Failed to start location tracking", Toast.LENGTH_SHORT).show()
                 isTracking = false
-                updateUIForTrackingState()
-                updateOnlineStatus()
             }
         }
     }
@@ -214,28 +197,10 @@ class MainActivity : AppCompatActivity() {
                 stopService(Intent(this, LocationService::class.java))
                 // Do NOT re-register location updates; UI updates are always active
                 isTracking = false
-                updateUIForTrackingState()
-                updateOnlineStatus()
                 Toast.makeText(this, "Location tracking stopped", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Log.e("MainActivity", "Failed to stop location tracking: ", e)
                 Toast.makeText(this, "Failed to stop location tracking", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    private fun updateUIForTrackingState() {
-        runOnUiThread {
-            if (isTracking) {
-                statusText.text = "Location tracking is active"
-                recordButton.isEnabled = true
-                toggleLocationButton.text = "Stop Location Updates"
-                toggleLocationButton.setBackgroundColor(resources.getColor(android.R.color.holo_orange_dark, null))
-            } else {
-                statusText.text = "Location tracking is stopped"
-                recordButton.isEnabled = false
-                toggleLocationButton.text = "Start Location Updates"
-                toggleLocationButton.setBackgroundColor(resources.getColor(android.R.color.holo_green_dark, null))
             }
         }
     }
@@ -268,8 +233,6 @@ class MainActivity : AppCompatActivity() {
                 })
                 runOnUiThread {
                     routeField.text = routeNames[0]
-                    stopField.isEnabled = false
-                    stopField.text = "Select stop..."
                 }
             },
             onError = { e ->
@@ -296,8 +259,6 @@ class MainActivity : AppCompatActivity() {
                 stops = (0 until arr.length()).map { arr.getJSONObject(it) }
                 runOnUiThread {
                     updateStopListWithFilter("")
-                    stopField.isEnabled = true
-                    stopField.text = "Select stop..."
                 }
             },
             onError = { e ->
@@ -343,69 +304,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateTopStopsChips(stops: List<StopDisplayItem>) {
-        topStopsLayout.removeAllViews()
-        val nearest = stops.firstOrNull() ?: return
-        val card = MaterialCardView(this)
-        card.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { setMargins(0, 0, 0, 16) }
-        card.radius = 18f
-        card.cardElevation = 6f
-        card.isClickable = true
-        card.isFocusable = true
-        card.setRippleColorResource(R.color.primary)
-        card.setCardBackgroundColor(resources.getColor(
-            if (selectedStop?.stop_id == nearest.stop_id) R.color.highlight else android.R.color.white, null))
-
-        val container = LinearLayout(this)
-        container.orientation = LinearLayout.VERTICAL
-        container.setPadding(0, 0, 0, 0)
-        container.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-
-        // Add 'Closest stop' label
-        val closestLabel = TextView(this)
-        closestLabel.text = "Closest stop"
-        closestLabel.setTextColor(resources.getColor(R.color.gray, null))
-        closestLabel.textSize = 12f
-        closestLabel.setTypeface(null, android.graphics.Typeface.BOLD)
-        closestLabel.setPadding(0, 0, 0, 2)
-        closestLabel.gravity = android.view.Gravity.CENTER
-        container.addView(closestLabel)
-
-        val stopNameView = TextView(this)
-        stopNameView.text = nearest.stopName
-        stopNameView.setTextColor(resources.getColor(R.color.primary, null))
-        stopNameView.textSize = 15f
-        stopNameView.setTypeface(null, android.graphics.Typeface.BOLD)
-        stopNameView.setPadding(0, 0, 0, 4)
-        stopNameView.gravity = android.view.Gravity.CENTER
-
-        val distanceView = TextView(this)
-        distanceView.text = String.format("%.2f km away", nearest.distanceMeters / 1000.0)
-        distanceView.setTextColor(resources.getColor(R.color.black, null))
-        distanceView.textSize = 14f
-        distanceView.gravity = android.view.Gravity.CENTER
-
-        card.setOnClickListener {
-            selectedStop = nearest
-            stopField.text = nearest.stopName
-            updateTopStopsChips(stops)
-        }
-
-        container.addView(stopNameView)
-        container.addView(distanceView)
-        card.addView(container)
-        topStopsLayout.addView(card)
+        // Implementation of updateTopStopsChips method
     }
 
     private fun getCurrentLocation(): Location? {
         return lastKnownLocation
     }
-
 
     private fun showDropdownDialog(
         hint: String,
@@ -530,7 +434,6 @@ class MainActivity : AppCompatActivity() {
             onItemSelected = { selected ->
                 val stop = selected as StopDisplayItem
                 selectedStop = stop
-                stopField.text = stop.stopName
                 updateTopStopsChips(stopItemsWithTop2)
             },
             filterPredicate = { item, query ->
@@ -654,23 +557,8 @@ class MainActivity : AppCompatActivity() {
                 val network = cm.activeNetwork
                 val capabilities = cm.getNetworkCapabilities(network)
                 isOnline = capabilities != null && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                updateOnlineStatus()
             }
         }, filter)
-    }
-
-    private fun updateOnlineStatus() {
-        runOnUiThread {
-            recordButton.isEnabled = isOnline && !isLowBattery
-            val statusDot = findViewById<View>(R.id.statusCard).findViewById<View>(R.id.statusDot)
-            if (isTracking) {
-                statusText.text = "Online"
-                statusDot?.setBackgroundResource(R.drawable.green_dot)
-            } else {
-                statusText.text = "Location tracking off"
-                statusDot?.setBackgroundResource(R.drawable.red_dot)
-            }
-        }
     }
 
     private fun checkBatteryStatus() {
@@ -685,7 +573,6 @@ class MainActivity : AppCompatActivity() {
         if (isLowBattery) {
             // e.g., set interval to 10 seconds
             // Constants.LOCATION_UPDATE_INTERVAL = 10000L
-            statusText.text = "Low battery mode: reduced tracking"
         } else {
             // Constants.LOCATION_UPDATE_INTERVAL = 3000L
         }
@@ -703,10 +590,6 @@ class MainActivity : AppCompatActivity() {
     private fun shouldSendLocation(newLocation: Location): Boolean {
         val last = lastSentLocation
         return last == null || newLocation.distanceTo(last) > Constants.DISTANCE_THRESHOLD_METERS
-    }
-
-    private fun updateCurrentLocationText(location: Location) {
-        currentLocationText.text = "${location.latitude.format(6)}, ${location.longitude.format(6)}"
     }
 
     private fun Double.format(digits: Int) = "%.${digits}f".format(this)
@@ -775,5 +658,202 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         fusedLocationClient.removeLocationUpdates(locationCallback)
+    }
+
+    private fun updateNearestStopDisplay() {
+        val nearest = getNearestStop()
+        if (nearest != null) {
+            nearestStopName.text = nearest.stopName
+            nearestStopDistance.text = String.format("%.2f km away", nearest.distanceMeters / 1000.0)
+        } else {
+            nearestStopName.text = "--"
+            nearestStopDistance.text = "--"
+        }
+    }
+
+    private fun getNearestStop(): StopDisplayItem? {
+        val currentLocation = lastKnownLocation
+        if (stops.isEmpty() || currentLocation == null) return null
+        return stops.map { stop ->
+            val stopLat = stop.optDouble("lat", 0.0)
+            val stopLon = stop.optDouble("lon", 0.0)
+            val result = FloatArray(1)
+            android.location.Location.distanceBetween(currentLocation.latitude, currentLocation.longitude, stopLat, stopLon, result)
+            StopDisplayItem(
+                stopName = stop.optString("stop_name", ""),
+                distanceMeters = result[0].toDouble(),
+                isTop3 = false,
+                stop_id = stop.optString("stop_id", ""),
+                lat = stopLat,
+                lon = stopLon
+            )
+        }.minByOrNull { it.distanceMeters }
+    }
+
+    private fun handleCorrect() {
+        val nearest = getNearestStop()
+        if (selectedRouteId == null || nearest == null || lastKnownLocation == null) {
+            Toast.makeText(this, "Please select a route and ensure location is available", Toast.LENGTH_SHORT).show()
+            return
+        }
+        logStop(selectedRouteId!!, nearest.stop_id, nearest.stopName, lastKnownLocation!!.latitude, lastKnownLocation!!.longitude)
+    }
+
+    private fun showIncorrectSection() {
+        incorrectSection.visibility = View.VISIBLE
+        stopDropdownField.text = "Select Stop"
+        selectedIncorrectStop = null
+    }
+
+    private fun showStopDropdownDialog() {
+        val currentLocation = lastKnownLocation
+        val stopItems = stops.map { stop ->
+            val stopLat = stop.optDouble("lat", 0.0)
+            val stopLon = stop.optDouble("lon", 0.0)
+            val result = FloatArray(1)
+            val dist = if (currentLocation != null) {
+                android.location.Location.distanceBetween(currentLocation.latitude, currentLocation.longitude, stopLat, stopLon, result)
+                result[0].toDouble()
+            } else 0.0
+            StopDisplayItem(
+                stopName = stop.optString("stop_name", ""),
+                distanceMeters = dist,
+                isTop3 = false,
+                stop_id = stop.optString("stop_id", ""),
+                lat = stopLat,
+                lon = stopLon
+            )
+        }.sortedBy { it.distanceMeters }
+
+        val dialogView = layoutInflater.inflate(R.layout.dialog_dropdown_common, null)
+        val searchEdit = dialogView.findViewById<EditText>(R.id.dropdownSearchEdit)
+        val recyclerView = dialogView.findViewById<RecyclerView>(R.id.dropdownRecyclerView)
+        val titleView = dialogView.findViewById<TextView>(R.id.dropdownDialogTitle)
+        val closeBtn = dialogView.findViewById<ImageButton>(R.id.dropdownDialogClose)
+        val emptyState = dialogView.findViewById<TextView>(R.id.dropdownEmptyState)
+        titleView.text = "Select Stop"
+        var filteredItems = stopItems
+        val dialog = AlertDialog.Builder(this, R.style.TransparentDialog)
+            .setView(dialogView)
+            .create()
+        dialog.setCanceledOnTouchOutside(true)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.setOnShowListener {
+            val window = dialog.window
+            window?.setLayout(WindowManager.LayoutParams.MATCH_PARENT, (resources.displayMetrics.heightPixels * 2 / 3))
+            window?.setGravity(android.view.Gravity.BOTTOM)
+        }
+        val adapter = object : RecyclerView.Adapter<StopViewHolder>() {
+            var items = filteredItems
+            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): StopViewHolder {
+                val view = LayoutInflater.from(parent.context).inflate(android.R.layout.simple_list_item_1, parent, false)
+                return StopViewHolder(view)
+            }
+            override fun onBindViewHolder(holder: StopViewHolder, position: Int) {
+                val stop = items[position]
+                (holder.itemView as TextView).text = "${stop.stopName} (%.2f km)".format(stop.distanceMeters / 1000.0)
+                holder.itemView.setOnClickListener {
+                    selectedIncorrectStop = stop
+                    stopDropdownField.text = "${stop.stopName} (%.2f km)".format(stop.distanceMeters / 1000.0)
+                    dialog.dismiss()
+                }
+            }
+            override fun getItemCount() = items.size
+        }
+        recyclerView.adapter = adapter
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        fun updateList(query: String) {
+            filteredItems = if (query.isBlank()) stopItems else stopItems.filter { it.stopName.contains(query, true) }
+            adapter.items = filteredItems
+            adapter.notifyDataSetChanged()
+            emptyState.visibility = if (filteredItems.isEmpty()) View.VISIBLE else View.GONE
+            recyclerView.visibility = if (filteredItems.isEmpty()) View.GONE else View.VISIBLE
+        }
+        searchEdit.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {}
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                updateList(s?.toString() ?: "")
+            }
+        })
+        updateList("")
+        closeBtn.setOnClickListener { dialog.dismiss() }
+        dialog.show()
+    }
+
+    class StopViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView)
+
+    private fun handleIncorrectSubmit() {
+        val manualStop = manualStopEdit.text.toString().trim()
+        // If manual stop is entered, use that as the stop name and id, ignore dropdown
+        val stopId: String
+        val stopName: String
+        if (manualStop.isNotEmpty()) {
+            stopId = "manual"
+            stopName = manualStop
+        } else {
+            stopId = selectedIncorrectStop?.stop_id ?: ""
+            stopName = selectedIncorrectStop?.stopName ?: ""
+        }
+        if (selectedRouteId == null || lastKnownLocation == null || stopName.isEmpty()) {
+            Toast.makeText(this, "Please select a route, stop, and ensure location is available", Toast.LENGTH_SHORT).show()
+            return
+        }
+        logStop(selectedRouteId!!, stopId, stopName, lastKnownLocation!!.latitude, lastKnownLocation!!.longitude)
+        incorrectSection.visibility = View.GONE
+        manualStopEdit.setText("")
+        val bottomButtonLayout = findViewById<LinearLayout>(R.id.bottomButtonLayout)
+        bottomButtonLayout.visibility = View.VISIBLE
+    }
+
+    private fun showAnimatedToast(message: String) {
+        val inflater = LayoutInflater.from(this)
+        val toastView = inflater.inflate(R.layout.animated_toast, null)
+        val toastText = toastView.findViewById<TextView>(R.id.animatedToastText)
+        toastText.text = message
+        // Optionally, add Lottie animation or custom animation here
+        val toast = Toast(this)
+        toast.view = toastView
+        toast.duration = Toast.LENGTH_SHORT
+        toast.show()
+    }
+
+    private fun logStop(routeId: String, stopId: String, stopName: String, lat: Double, lon: Double) {
+        try {
+            val json = JSONObject().apply {
+                put("route_id", routeId)
+                put("stop_id", stopId)
+                put("stop_name", stopName)
+                put("lat", lat)
+                put("lon", lon)
+            }
+            Log.d("MainActivity", "Logging stop with payload: $json")
+            val url = "${Constants.BASE_URL}/routeTrackerApi/record"
+            val body = json.toString().toRequestBody("application/json".toMediaType())
+            val sessionCookie = getSessionCookie()
+            if (sessionCookie == null) {
+                SessionHelper.handleSessionExpired(this)
+                return
+            }
+            NetworkHelper.authenticatedRequest(
+                url,
+                "POST",
+                sessionCookie,
+                body,
+                onSuccess = {
+                    runOnUiThread {
+                        showAnimatedToast("Stop recorded successfully!")
+                    }
+                },
+                onError = { e ->
+                    runOnUiThread {
+                        ToastHelper.show(this, "Failed to record stop: ${e.message}")
+                    }
+                }
+            )
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error logging stop: ${e.message}")
+            ToastHelper.show(this, "Error logging stop: ${e.message}")
+        }
     }
 } 
