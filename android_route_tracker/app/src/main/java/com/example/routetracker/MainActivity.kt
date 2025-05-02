@@ -33,9 +33,6 @@ import android.app.AlertDialog
 import android.widget.LinearLayout
 import com.example.routetracker.Constants
 import com.example.routetracker.PermissionHelper
-import com.example.routetracker.ToastHelper
-import com.example.routetracker.LocationHelper
-import com.example.routetracker.NetworkHelper
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.card.MaterialCardView
@@ -101,7 +98,7 @@ class MainActivity : AppCompatActivity() {
         submitButton.setOnClickListener { handleSubmit() }
 
         // Fetch configs from backend before starting location service
-        ConfigManager.fetchConfigs(this, "chennai", "bus") {
+        ConfigManager.fetchConfigs( "chennai", "bus") {
             runOnUiThread {
                 if (PermissionHelper.hasAllLocationPermissions(this)) {
                     val serviceIntent = Intent(this, LocationService::class.java)
@@ -131,14 +128,23 @@ class MainActivity : AppCompatActivity() {
         NetworkHelper.authenticatedRequest(
             url,
             "GET",
-            Constants.SESSION_API_TOKEN,
             onSuccess = { responseBody ->
-                val arr = JSONArray(responseBody)
-                routes = (0 until arr.length()).map { arr.getJSONObject(it) }
+                try {
+                    val arr = JSONArray(responseBody)
+                    routes = (0 until arr.length()).map { arr.getJSONObject(it) }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        Toast.makeText(this, "Error parsing routes: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
             },
             onError = { e ->
-                runOnUiThread {
-                    Toast.makeText(this, "Failed to load routes: ${e.message}", Toast.LENGTH_SHORT).show()
+                try {
+                    runOnUiThread {
+                        Toast.makeText(this, "Failed to load routes: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (ex: Exception) {
+                    Log.e("MainActivity", "Error handling routes error: ${ex.message}")
                 }
             }
         )
@@ -149,14 +155,23 @@ class MainActivity : AppCompatActivity() {
         NetworkHelper.authenticatedRequest(
             url,
             "GET",
-            Constants.SESSION_API_TOKEN,
             onSuccess = { responseBody ->
-                val arr = JSONArray(responseBody)
-                stops = (0 until arr.length()).map { arr.getJSONObject(it) }
+                try {
+                    val arr = JSONArray(responseBody)
+                    stops = (0 until arr.length()).map { arr.getJSONObject(it) }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        Toast.makeText(this, "Error parsing stops: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
             },
             onError = { e ->
-                runOnUiThread {
-                    Toast.makeText(this, "Failed to load stops: ${e.message}", Toast.LENGTH_SHORT).show()
+                try {
+                    runOnUiThread {
+                        Toast.makeText(this, "Failed to load stops: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (ex: Exception) {
+                    Log.e("MainActivity", "Error handling stops error: ${ex.message}")
                 }
             }
         )
@@ -422,7 +437,7 @@ class MainActivity : AppCompatActivity() {
             if (manualStop.isNotEmpty()) {
                 logStop(selectedRouteId!!, "manual", manualStop, lastKnownLocation?.latitude ?: 0.0, lastKnownLocation?.longitude ?: 0.0, "STOP_RECORD_TYPED")
             } else if (selectedStop != null) {
-                logStop(selectedRouteId!!, selectedStop!!.stop_id, selectedStop!!.stopName, lastKnownLocation?.latitude ?: 0.0, lastKnownLocation?.longitude ?: 0.0, "STOP_RECORD_TYPED")
+                logStop(selectedRouteId!!, selectedStop!!.stop_id, selectedStop!!.stopName, lastKnownLocation?.latitude ?: 0.0, lastKnownLocation?.longitude ?: 0.0, "STOP_RECORD_SELECTED")
             } else {
                 Toast.makeText(this, "Please select or enter a stop", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
@@ -452,16 +467,23 @@ class MainActivity : AppCompatActivity() {
             NetworkHelper.authenticatedRequest(
                 url,
                 "POST",
-                Constants.SESSION_API_TOKEN,
                 body,
                 onSuccess = {
-                    runOnUiThread {
-                        Toast.makeText(this, "Stop recorded successfully!", Toast.LENGTH_SHORT).show()
+                    try {
+                        runOnUiThread {
+                            Toast.makeText(this, "Stop recorded successfully!", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error handling stop success: ${e.message}")
                     }
                 },
                 onError = { e ->
-                    runOnUiThread {
-                        Toast.makeText(this, "Failed to record stop: ${e.message}", Toast.LENGTH_SHORT).show()
+                    try {
+                        runOnUiThread {
+                            Toast.makeText(this, "Failed to record stop: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (ex: Exception) {
+                        Log.e("MainActivity", "Error handling stop error: ${ex.message}")
                     }
                 }
             )
@@ -472,6 +494,59 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showRoutePickerDialog() {
+        val dialog = BottomSheetDialog(this)
+        val sheetView = layoutInflater.inflate(R.layout.dialog_route_picker, null)
+        val searchEdit = sheetView.findViewById<EditText>(R.id.routeSearchEdit)
+        val recyclerView = sheetView.findViewById<RecyclerView>(R.id.routeRecyclerView)
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        val loadingText = TextView(this).apply {
+            text = "Loading routes..."
+            textSize = 18f
+            setPadding(32, 48, 32, 48)
+            gravity = android.view.Gravity.CENTER
+        }
+        val retryButton = Button(this).apply {
+            text = "Retry"
+            textSize = 18f
+            setPadding(32, 24, 32, 24)
+            visibility = View.GONE
+        }
+        (sheetView as ViewGroup).addView(loadingText)
+        (sheetView as ViewGroup).addView(retryButton)
+
+        fun updateRoutesUI() {
+            if (routes.isEmpty()) {
+                recyclerView.visibility = View.GONE
+                loadingText.visibility = View.VISIBLE
+                retryButton.visibility = View.VISIBLE
+            } else {
+                recyclerView.visibility = View.VISIBLE
+                loadingText.visibility = View.GONE
+                retryButton.visibility = View.GONE
+            }
+        }
+
+        retryButton.setOnClickListener {
+            loadingText.text = "Loading routes..."
+            loadingText.visibility = View.VISIBLE
+            retryButton.visibility = View.GONE
+            fetchRoutes()
+            // Try to update UI after a short delay
+            recyclerView.postDelayed({ updateRoutesUI() }, 1200)
+        }
+
+        if (routes.isEmpty()) {
+            loadingText.visibility = View.VISIBLE
+            retryButton.visibility = View.VISIBLE
+            recyclerView.visibility = View.GONE
+            fetchRoutes()
+            recyclerView.postDelayed({ updateRoutesUI() }, 1200)
+        } else {
+            loadingText.visibility = View.GONE
+            retryButton.visibility = View.GONE
+            recyclerView.visibility = View.VISIBLE
+        }
+
         val sortedRoutes = routes.sortedWith(compareBy {
             it.optString("route_code", "").toIntOrNull() ?: Int.MAX_VALUE
         })
@@ -481,11 +556,6 @@ class MainActivity : AppCompatActivity() {
             val end = it.optString("route_end_point", "")
             Triple(code, start, end)
         }
-        val dialog = BottomSheetDialog(this)
-        val sheetView = layoutInflater.inflate(R.layout.dialog_route_picker, null)
-        val searchEdit = sheetView.findViewById<EditText>(R.id.routeSearchEdit)
-        val recyclerView = sheetView.findViewById<RecyclerView>(R.id.routeRecyclerView)
-        recyclerView.layoutManager = LinearLayoutManager(this)
         var filtered = routeItems
         val adapter = object : RecyclerView.Adapter<RouteViewHolder>() {
             var items = filtered

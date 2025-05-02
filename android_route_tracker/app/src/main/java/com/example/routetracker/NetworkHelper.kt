@@ -48,7 +48,7 @@ object NetworkHelper {
         })
     }
 
-    fun authenticatedRequest(url: String, method: String, token: String, body: RequestBody? = null, onSuccess: (String) -> Unit, onError: (Exception) -> Unit) {
+    fun authenticatedRequest(url: String, method: String, body: RequestBody? = null, onSuccess: (String) -> Unit, onError: (Exception) -> Unit) {
         val builder = Request.Builder().url(url)
         if (method == "POST" && body != null) builder.post(body)
         val request = builder.build()
@@ -58,7 +58,7 @@ object NetworkHelper {
                 if (response.isSuccessful) {
                     onSuccess(response.body?.string() ?: "")
                 } else {
-                    onError(IOException("HTTP ${response.code}"))
+                    onError(IOException("HTTP \\${response.code}"))
                 }
             }
         })

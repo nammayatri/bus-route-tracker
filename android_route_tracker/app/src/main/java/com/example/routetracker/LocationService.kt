@@ -161,10 +161,21 @@ class LocationService : Service() {
         NetworkHelper.authenticatedRequest(
             url,
             "POST",
-            Constants.SESSION_API_TOKEN,
             body,
-            onSuccess = {},
-            onError = { /* Optionally log error */ }
+            onSuccess = {
+                try {
+                    Log.d("LocationService", "Location update sent successfully.")
+                } catch (e: Exception) {
+                    Log.e("LocationService", "Error handling location update success: ${e.message}")
+                }
+            },
+            onError = { e ->
+                try {
+                    Log.e("LocationService", "Failed to send location update: ${e.message}")
+                } catch (ex: Exception) {
+                    Log.e("LocationService", "Error handling location update error: ${ex.message}")
+                }
+            }
         )
     }
 
