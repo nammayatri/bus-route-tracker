@@ -11,4 +11,9 @@ object SessionHelper {
         activity.startActivity(Intent(activity, LoginActivity::class.java))
         activity.finish()
     }
+
+    fun hasSession(context: Context): Boolean {
+        val prefs = context.getSharedPreferences("Auth", Context.MODE_PRIVATE)
+        return !prefs.getString("session", null).isNullOrEmpty()
+    }
 } 
