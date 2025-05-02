@@ -109,6 +109,10 @@ def token_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+@app.route('/routeTrackerApi/test')
+def test():
+    return jsonify({'Welcome to the Bus Stop Tracker'})
+
 @app.route('/routeTrackerApi/routes')
 @token_required
 def get_routes():
