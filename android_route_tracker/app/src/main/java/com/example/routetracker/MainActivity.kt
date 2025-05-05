@@ -57,6 +57,8 @@ import android.view.ViewGroup
 import android.location.LocationManager
 import android.net.Uri
 import com.example.routetracker.RouteDisplayItem
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 
 data class StopDisplayItem(
     val stopName: String,
@@ -84,6 +86,8 @@ class MainActivity : AppCompatActivity() {
     private var routePickerDialog: BottomSheetDialog? = null
     private var routePickerAdapter: RecyclerView.Adapter<*>? = null
     private var routePickerRecyclerView: RecyclerView? = null
+    private var backgroundDialogShown = false
+    private lateinit var settingsLauncher: ActivityResultLauncher<Intent>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -94,7 +98,7 @@ class MainActivity : AppCompatActivity() {
             promptEnableLocation()
         }
         // Check if location permission is granted, prompt if not
-        if (!PermissionHelper.hasAllLocationPermissions(this)) {
+        if (!PermissionHelper.hasForegroundLocationPermission(this)) {
             promptLocationPermission()
         }
 
@@ -117,7 +121,7 @@ class MainActivity : AppCompatActivity() {
         // Fetch configs from backend before starting location service
         ConfigManager.fetchConfigs( "chennai", "bus") {
             runOnUiThread {
-                if (PermissionHelper.hasAllLocationPermissions(this)) {
+                if (PermissionHelper.hasForegroundLocationPermission(this)) {
                     val serviceIntent = Intent(this, LocationService::class.java)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         startForegroundService(serviceIntent)
@@ -125,8 +129,24 @@ class MainActivity : AppCompatActivity() {
                         startService(serviceIntent)
                     }
                 } else {
-                    PermissionHelper.requestLocationPermissions(this, 1001)
+                    PermissionHelper.requestForegroundLocationPermission(this, 1001)
                 }
+            }
+        }
+
+        backgroundDialogShown = false
+        settingsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            if (PermissionHelper.hasBackgroundLocationPermission(this)) {
+                startLocationUpdates()
+                val serviceIntent = Intent(this, LocationService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(serviceIntent)
+                } else {
+                    startService(serviceIntent)
+                }
+            } else {
+                backgroundDialogShown = false
+                Toast.makeText(this, "Background location not granted. You can enable it in settings anytime.", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -672,7 +692,63 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 1001) {
             if (grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-                // Permission granted, start location updates and service
+                if (android.os.Build.VERSION.SDK_INT == android.os.Build.VERSION_CODES.Q) {
+                    // Android 10: both permissions granted, start location updates and service
+                    startLocationUpdates()
+                    val serviceIntent = Intent(this, LocationService::class.java)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(serviceIntent)
+                    } else {
+                        startService(serviceIntent)
+                    }
+                } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    // Android 11+: only show dialog if background location is not already granted
+                    if (!PermissionHelper.hasBackgroundLocationPermission(this) && !backgroundDialogShown) {
+                        backgroundDialogShown = true
+                        AlertDialog.Builder(this)
+                            .setTitle("Background Location Required")
+                            .setMessage("To enable full tracking, tap 'Open Settings', then tap 'Permissions' > 'Location' and select 'Allow all the time'.")
+                            .setPositiveButton("Open Settings") { _, _ ->
+                                val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.fromParts("package", packageName, null)
+                                }
+                                settingsLauncher.launch(intent)
+                            }
+                            .setNegativeButton("Not Now", null)
+                            .show()
+                    } else if (PermissionHelper.hasBackgroundLocationPermission(this)) {
+                        // Both permissions granted, start service
+                        startLocationUpdates()
+                        val serviceIntent = Intent(this, LocationService::class.java)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(serviceIntent)
+                        } else {
+                            startService(serviceIntent)
+                        }
+                    }
+                } else {
+                    // Pre-Android 10: no background location, proceed as normal
+                    startLocationUpdates()
+                    val serviceIntent = Intent(this, LocationService::class.java)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(serviceIntent)
+                    } else {
+                        startService(serviceIntent)
+                    }
+                }
+            } else {
+                // If user selected "Don't ask again", show settings dialog
+                if (!ActivityCompat.shouldShowRequestPermissionRationale(this, android.Manifest.permission.ACCESS_FINE_LOCATION)) {
+                    showPermissionSettingsDialog()
+                } else {
+                    // Otherwise, just show a toast or rationale
+                    Toast.makeText(this, "Location permission is required for this app to work.", Toast.LENGTH_LONG).show()
+                }
+            }
+        } else if (requestCode == 1002) {
+            // Background location permission result
+            if (grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                // Background location granted, start location updates and service
                 startLocationUpdates()
                 val serviceIntent = Intent(this, LocationService::class.java)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -681,8 +757,12 @@ class MainActivity : AppCompatActivity() {
                     startService(serviceIntent)
                 }
             } else {
-                // Permission denied, show dialog to open settings
-                showPermissionSettingsDialog()
+                // If user selected "Don't ask again", show settings dialog
+                if (!ActivityCompat.shouldShowRequestPermissionRationale(this, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)) {
+                    showPermissionSettingsDialog()
+                } else {
+                    Toast.makeText(this, "Background location is required for full functionality.", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
@@ -721,14 +801,8 @@ class MainActivity : AppCompatActivity() {
 
     // Helper to prompt user to enable location permission
     private fun promptLocationPermission() {
-        AlertDialog.Builder(this)
-            .setTitle("Location Permission Required")
-            .setMessage("This app needs location permission to work. Grant permission?")
-            .setPositiveButton("Yes") { _, _ ->
-                PermissionHelper.requestLocationPermissions(this, 1001)
-            }
-            .setNegativeButton("No", null)
-            .show()
+        // Only request foreground location permission directly, no popup
+        PermissionHelper.requestForegroundLocationPermission(this, 1001)
     }
 }
 
