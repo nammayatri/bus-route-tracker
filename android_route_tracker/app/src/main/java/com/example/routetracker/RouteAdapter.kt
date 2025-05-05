@@ -5,13 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-
-data class RouteDisplayItem(
-    val routeCode: String,
-    val routeStart: String,
-    val routeEnd: String,
-    val routeNumber: String? = null
-)
+import com.example.routetracker.RouteDisplayItem
 
 class RouteAdapter(
     private var routes: List<RouteDisplayItem>,
