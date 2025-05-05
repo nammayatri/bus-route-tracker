@@ -568,31 +568,73 @@ class MainActivity : AppCompatActivity() {
             recyclerView.visibility = View.VISIBLE
         }
 
-        fun naturalRouteComparator(a: String, b: String): Int {
-            val regex = Regex("(\\d+)([a-zA-Z]*)")
-            val matchA = regex.matchEntire(a.trim())
-            val matchB = regex.matchEntire(b.trim())
-            return if (matchA != null && matchB != null) {
-                val (numA, sufA) = matchA.destructured
-                val (numB, sufB) = matchB.destructured
-                val cmp = numA.toInt().compareTo(numB.toInt())
-                if (cmp != 0) cmp else sufA.compareTo(sufB, ignoreCase = true)
+        fun computeSortKey(routeNumber: String?, routeCode: String): Triple<Int, Int, String> {
+            val str = routeNumber?.takeIf { it.isNotBlank() } ?: routeCode
+            val regex = Regex("^(\\d+)([a-zA-Z]*)$")
+            val match = regex.matchEntire(str.trim())
+            return if (match != null) {
+                val (num, suf) = match.destructured
+                Triple(0, num.toIntOrNull() ?: -1, suf.lowercase())
             } else {
-                a.compareTo(b, ignoreCase = true)
+                Triple(1, -1, str.lowercase())
             }
         }
 
-        val sortedRoutes = routes.sortedWith { a, b ->
-            val nA = a.optString("route_number", null) ?: a.optString("route_code", "")
-            val nB = b.optString("route_number", null) ?: b.optString("route_code", "")
-            naturalRouteComparator(nA, nB)
-        }
+        data class RouteDisplayItem(
+            val routeCode: String,
+            val routeStart: String,
+            val routeEnd: String,
+            val routeNumber: String? = null,
+            val sortKey: Triple<Int, Int, String>
+        )
+
+        val sortedRoutes = routes.sortedWith(compareBy(
+            { 
+                val str = it.optString("route_number", null)?.takeIf { s -> !s.isNullOrBlank() } ?: it.optString("route_code", "")
+                val regex = Regex("^(\\d+)([a-zA-Z]*)$")
+                val match = regex.matchEntire(str.trim())
+                if (match != null) {
+                    val (num, suf) = match.destructured
+                    0
+                } else {
+                    1
+                }
+            },
+            { 
+                val str = it.optString("route_number", null)?.takeIf { s -> !s.isNullOrBlank() } ?: it.optString("route_code", "")
+                val regex = Regex("^(\\d+)([a-zA-Z]*)$")
+                val match = regex.matchEntire(str.trim())
+                if (match != null) {
+                    val (num, suf) = match.destructured
+                    num.toIntOrNull() ?: -1
+                } else {
+                    -1
+                }
+            },
+            { 
+                val str = it.optString("route_number", null)?.takeIf { s -> !s.isNullOrBlank() } ?: it.optString("route_code", "")
+                val regex = Regex("^(\\d+)([a-zA-Z]*)$")
+                val match = regex.matchEntire(str.trim())
+                if (match != null) {
+                    val (num, suf) = match.destructured
+                    suf.lowercase()
+                } else {
+                    str.lowercase()
+                }
+            }
+        ))
         val routeItems = sortedRoutes.map {
             val code = it.optString("route_code", "")
             val start = it.optString("route_start_point", "")
             val end = it.optString("route_end_point", "")
             val number = if (it.has("route_number")) it.optString("route_number", null) else null
-            RouteDisplayItem(routeCode = code, routeStart = start, routeEnd = end, routeNumber = number)
+            RouteDisplayItem(
+                routeCode = code,
+                routeStart = start,
+                routeEnd = end,
+                routeNumber = number,
+                sortKey = computeSortKey(number, code)
+            )
         }
         var filtered = routeItems
         val adapter = object : RecyclerView.Adapter<RouteViewHolder>() {
@@ -607,7 +649,7 @@ class MainActivity : AppCompatActivity() {
                 holder.startView.text = route.routeStart
                 holder.endView.text = route.routeEnd
                 holder.itemView.setOnClickListener {
-                    selectedRouteId = route.routeNumber ?: route.routeCode
+                    selectedRouteId = (route.routeNumber?.takeIf { it.isNotBlank() } ?: route.routeCode)
                     selectedRouteDisplay = "${route.routeNumber ?: route.routeCode} | ${route.routeStart} -> ${route.routeEnd}"
                     routeSelectButton.text = selectedRouteDisplay
                     if (selectedRouteId != null) fetchStops(selectedRouteId!!)
@@ -622,17 +664,12 @@ class MainActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 val query = s.toString()
-                val isInt = query.toIntOrNull() != null
                 val filteredList = routeItems.filter {
-                    (it.routeNumber ?: it.routeCode).contains(query, true) ||
-                    it.routeStart.contains(query, true) ||
-                    it.routeEnd.contains(query, true)
-                }.sortedWith { a, b ->
-                    naturalRouteComparator(
-                        (a.routeNumber ?: a.routeCode),
-                        (b.routeNumber ?: b.routeCode)
-                    )
-                }
+                    (it.routeNumber ?: it.routeCode).isNotBlank() &&
+                    ((it.routeNumber ?: it.routeCode).contains(query, true) ||
+                     it.routeStart.contains(query, true) ||
+                     it.routeEnd.contains(query, true))
+                }.sortedWith(compareBy({ it.sortKey.first }, { it.sortKey.second }, { it.sortKey.third }))
                 adapter.items = filteredList
                 adapter.notifyDataSetChanged()
             }
