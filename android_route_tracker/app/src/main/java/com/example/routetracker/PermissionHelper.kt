@@ -7,25 +7,34 @@ import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 
 object PermissionHelper {
-    private val permissions: List<String>
-        get() {
-            val perms = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION)
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                perms.add(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-            }
-            if (android.os.Build.VERSION.SDK_INT >= 34) {
-                perms.add(Manifest.permission.FOREGROUND_SERVICE_LOCATION)
-            }
-            return perms
-        }
+    val foregroundPermissions: List<String>
+        get() = listOf(Manifest.permission.ACCESS_FINE_LOCATION)
 
-    fun hasAllLocationPermissions(context: Context): Boolean {
-        return permissions.all {
+    val backgroundPermissions: List<String>
+        get() = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q)
+            listOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+        else
+            emptyList()
+
+    fun hasForegroundLocationPermission(context: Context): Boolean {
+        return foregroundPermissions.all {
             ActivityCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
         }
     }
 
-    fun requestLocationPermissions(activity: Activity, requestCode: Int) {
-        ActivityCompat.requestPermissions(activity, permissions.toTypedArray(), requestCode)
+    fun hasBackgroundLocationPermission(context: Context): Boolean {
+        return backgroundPermissions.all {
+            ActivityCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    fun requestForegroundLocationPermission(activity: Activity, requestCode: Int) {
+        ActivityCompat.requestPermissions(activity, foregroundPermissions.toTypedArray(), requestCode)
+    }
+
+    fun requestBackgroundLocationPermission(activity: Activity, requestCode: Int) {
+        if (backgroundPermissions.isNotEmpty()) {
+            ActivityCompat.requestPermissions(activity, backgroundPermissions.toTypedArray(), requestCode)
+        }
     }
 } 
