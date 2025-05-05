@@ -568,14 +568,31 @@ class MainActivity : AppCompatActivity() {
             recyclerView.visibility = View.VISIBLE
         }
 
-        val sortedRoutes = routes.sortedWith(compareBy {
-            it.optString("route_code", "").toIntOrNull() ?: Int.MAX_VALUE
-        })
+        fun naturalRouteComparator(a: String, b: String): Int {
+            val regex = Regex("(\\d+)([a-zA-Z]*)")
+            val matchA = regex.matchEntire(a.trim())
+            val matchB = regex.matchEntire(b.trim())
+            return if (matchA != null && matchB != null) {
+                val (numA, sufA) = matchA.destructured
+                val (numB, sufB) = matchB.destructured
+                val cmp = numA.toInt().compareTo(numB.toInt())
+                if (cmp != 0) cmp else sufA.compareTo(sufB, ignoreCase = true)
+            } else {
+                a.compareTo(b, ignoreCase = true)
+            }
+        }
+
+        val sortedRoutes = routes.sortedWith { a, b ->
+            val nA = a.optString("route_number", null) ?: a.optString("route_code", "")
+            val nB = b.optString("route_number", null) ?: b.optString("route_code", "")
+            naturalRouteComparator(nA, nB)
+        }
         val routeItems = sortedRoutes.map {
             val code = it.optString("route_code", "")
             val start = it.optString("route_start_point", "")
             val end = it.optString("route_end_point", "")
-            Triple(code, start, end)
+            val number = if (it.has("route_number")) it.optString("route_number", null) else null
+            RouteDisplayItem(routeCode = code, routeStart = start, routeEnd = end, routeNumber = number)
         }
         var filtered = routeItems
         val adapter = object : RecyclerView.Adapter<RouteViewHolder>() {
@@ -585,13 +602,13 @@ class MainActivity : AppCompatActivity() {
                 return RouteViewHolder(v)
             }
             override fun onBindViewHolder(holder: RouteViewHolder, position: Int) {
-                val (code, start, end) = items[position]
-                holder.codeView.text = code
-                holder.startView.text = start
-                holder.endView.text = end
+                val route = items[position]
+                holder.codeView.text = route.routeNumber ?: route.routeCode
+                holder.startView.text = route.routeStart
+                holder.endView.text = route.routeEnd
                 holder.itemView.setOnClickListener {
-                    selectedRouteId = code
-                    selectedRouteDisplay = "$code | $start -> $end"
+                    selectedRouteId = route.routeNumber ?: route.routeCode
+                    selectedRouteDisplay = "${route.routeNumber ?: route.routeCode} | ${route.routeStart} -> ${route.routeEnd}"
                     routeSelectButton.text = selectedRouteDisplay
                     if (selectedRouteId != null) fetchStops(selectedRouteId!!)
                     dialog.dismiss()
@@ -607,14 +624,16 @@ class MainActivity : AppCompatActivity() {
                 val query = s.toString()
                 val isInt = query.toIntOrNull() != null
                 val filteredList = routeItems.filter {
-                    it.first.contains(query, true) || it.second.contains(query, true) || it.third.contains(query, true)
+                    (it.routeNumber ?: it.routeCode).contains(query, true) ||
+                    it.routeStart.contains(query, true) ||
+                    it.routeEnd.contains(query, true)
+                }.sortedWith { a, b ->
+                    naturalRouteComparator(
+                        (a.routeNumber ?: a.routeCode),
+                        (b.routeNumber ?: b.routeCode)
+                    )
                 }
-                val sorted = if (isInt) {
-                    filteredList.sortedBy { it.first.toIntOrNull() ?: Int.MAX_VALUE }
-                } else {
-                    filteredList.sortedBy { it.first }
-                }
-                adapter.items = sorted
+                adapter.items = filteredList
                 adapter.notifyDataSetChanged()
             }
         })

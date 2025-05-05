@@ -9,7 +9,8 @@ import androidx.recyclerview.widget.RecyclerView
 data class RouteDisplayItem(
     val routeCode: String,
     val routeStart: String,
-    val routeEnd: String
+    val routeEnd: String,
+    val routeNumber: String? = null
 )
 
 class RouteAdapter(
@@ -31,7 +32,7 @@ class RouteAdapter(
 
     override fun onBindViewHolder(holder: RouteViewHolder, position: Int) {
         val route = routes[position]
-        holder.codeText.text = route.routeCode
+        holder.codeText.text = route.routeNumber ?: route.routeCode
         holder.startText.text = route.routeStart
         holder.endText.text = route.routeEnd
         holder.itemView.setOnClickListener { onRouteClick(route) }
