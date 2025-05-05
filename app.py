@@ -281,6 +281,7 @@ def get_cached_routes():
             {
                 'route_code': r['routeCode'],
                 'route_name': r['routeName'],
+                'route_number': r.get('routeNumber'),
                 "route_end_point": r['routeEnd'],
                 "route_start_point": r['routeStart']
             }
