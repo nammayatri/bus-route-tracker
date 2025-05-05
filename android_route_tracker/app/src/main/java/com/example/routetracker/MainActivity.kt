@@ -288,17 +288,21 @@ class MainActivity : AppCompatActivity() {
                 lon = stopLon
             )
         }.sortedBy { it.distanceMeters }
-        // Set nearest stop distance
-        if (stopItems.isNotEmpty()) {
-            val nearest = stopItems[0]
-            val distStr = if (nearest.distanceMeters >= 1000) {
-                String.format("%.2f km", nearest.distanceMeters / 1000.0)
+        // Set nearest stop distance if available
+        if (nearestStopDistanceView != null) {
+            if (stopItems.isNotEmpty()) {
+                val nearest = stopItems[0]
+                val distStr = if (nearest.distanceMeters >= 1000) {
+                    String.format("%.2f km", nearest.distanceMeters / 1000.0)
+                } else {
+                    String.format("%.0f m", nearest.distanceMeters)
+                }
+                nearestStopDistanceView.text = "Nearest stop: $distStr away"
+                nearestStopDistanceView.visibility = View.VISIBLE
             } else {
-                String.format("%.0f m", nearest.distanceMeters)
+                nearestStopDistanceView.text = ""
+                nearestStopDistanceView.visibility = View.GONE
             }
-            // nearestStopDistanceView.text = "Nearest stop: $distStr away"
-        } else {
-            nearestStopDistanceView.text = "No stops available"
         }
         // Custom adapter for spinner: show stop name and distance
         val stopDisplayList = stopItems.map {
@@ -622,7 +626,7 @@ class MainActivity : AppCompatActivity() {
                 holder.startView.text = route.routeStart
                 holder.endView.text = route.routeEnd
                 holder.itemView.setOnClickListener {
-                    selectedRouteId = (route.routeNumber?.takeIf { it.isNotBlank() } ?: route.routeCode)
+                    selectedRouteId = route.routeCode
                     selectedRouteDisplay = "${route.routeNumber ?: route.routeCode} | ${route.routeStart} -> ${route.routeEnd}"
                     routeSelectButton.text = selectedRouteDisplay
                     if (selectedRouteId != null) fetchStops(selectedRouteId!!)
