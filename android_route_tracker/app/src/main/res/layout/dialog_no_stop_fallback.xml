@@ -87,6 +87,16 @@
                     android:layout_marginBottom="16dp"
                     android:textColor="@android:color/black"/>
 
+                <TextView
+                    android:id="@+id/nearestStopDistance"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:layout_marginBottom="8dp"/>
+
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
