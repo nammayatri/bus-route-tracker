@@ -56,6 +56,7 @@ import android.widget.ScrollView
 import android.view.ViewGroup
 import android.location.LocationManager
 import android.net.Uri
+import com.example.routetracker.RouteDisplayItem
 
 data class StopDisplayItem(
     val stopName: String,
@@ -80,6 +81,9 @@ class MainActivity : AppCompatActivity() {
     private var lastKnownLocation: Location? = null
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
+    private var routePickerDialog: BottomSheetDialog? = null
+    private var routePickerAdapter: RecyclerView.Adapter<*>? = null
+    private var routePickerRecyclerView: RecyclerView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -145,6 +149,26 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val arr = JSONArray(responseBody)
                     routes = (0 until arr.length()).map { arr.getJSONObject(it) }
+                    runOnUiThread {
+                        // If the route picker dialog is open, update its adapter
+                        if (routePickerDialog?.isShowing == true && routePickerAdapter != null && routePickerRecyclerView != null) {
+                            // Rebuild the routeItems and update the adapter's data
+                            val newRouteItems = routes.map {
+                                val code = it.optString("route_code", "")
+                                val start = it.optString("route_start_point", "")
+                                val end = it.optString("route_end_point", "")
+                                val number = if (it.has("route_number")) it.optString("route_number", null) else null
+                                RouteDisplayItem(
+                                    routeCode = code,
+                                    routeStart = start,
+                                    routeEnd = end,
+                                    routeNumber = number
+                                )
+                            }
+                            // If using RouteAdapter, update its data
+                            (routePickerAdapter as? RouteAdapter)?.updateRoutes(newRouteItems)
+                        }
+                    }
                 } catch (e: Exception) {
                     runOnUiThread {
                         Toast.makeText(this, "Error parsing routes: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -439,6 +463,10 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             sheetDialog.setContentView(sheetView)
+            // Fix: Ensure bottom sheet resizes with keyboard
+            sheetDialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            // Allow dismiss on outside touch
+            sheetDialog.setCanceledOnTouchOutside(true)
             sheetDialog.show()
         }
         // Create the fallback dialog and assign to a variable
@@ -592,14 +620,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        data class RouteDisplayItem(
-            val routeCode: String,
-            val routeStart: String,
-            val routeEnd: String,
-            val routeNumber: String? = null,
-            val naturalSortKey: List<Comparable<*>>
-        )
-
         val routeItems = routes.map {
             val code = it.optString("route_code", "")
             val start = it.optString("route_start_point", "")
@@ -614,28 +634,18 @@ class MainActivity : AppCompatActivity() {
             )
         }.sortedWith { a, b -> compareNaturalSortKey(a.naturalSortKey, b.naturalSortKey) }
         var filtered = routeItems
-        val adapter = object : RecyclerView.Adapter<RouteViewHolder>() {
-            var items = filtered
-            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RouteViewHolder {
-                val v = LayoutInflater.from(parent.context).inflate(R.layout.item_route, parent, false)
-                return RouteViewHolder(v)
-            }
-            override fun onBindViewHolder(holder: RouteViewHolder, position: Int) {
-                val route = items[position]
-                holder.codeView.text = route.routeNumber ?: route.routeCode
-                holder.startView.text = route.routeStart
-                holder.endView.text = route.routeEnd
-                holder.itemView.setOnClickListener {
-                    selectedRouteId = route.routeCode
-                    selectedRouteDisplay = "${route.routeNumber ?: route.routeCode} | ${route.routeStart} -> ${route.routeEnd}"
-                    routeSelectButton.text = selectedRouteDisplay
-                    if (selectedRouteId != null) fetchStops(selectedRouteId!!)
-                    dialog.dismiss()
-                }
-            }
-            override fun getItemCount() = items.size
+        val adapter = RouteAdapter(routeItems) { route ->
+            selectedRouteId = route.routeCode
+            selectedRouteDisplay = "${route.routeNumber ?: route.routeCode} | ${route.routeStart} -> ${route.routeEnd}"
+            routeSelectButton.text = selectedRouteDisplay
+            if (selectedRouteId != null) fetchStops(selectedRouteId!!)
+            dialog.dismiss()
         }
         recyclerView.adapter = adapter
+        // Store references for updating
+        routePickerDialog = dialog
+        routePickerAdapter = adapter
+        routePickerRecyclerView = recyclerView
         searchEdit.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {}
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -646,12 +656,15 @@ class MainActivity : AppCompatActivity() {
                     ((it.routeNumber ?: it.routeCode).contains(query, true) ||
                      it.routeStart.contains(query, true) ||
                      it.routeEnd.contains(query, true))
-                }.sortedWith { a, b -> compareNaturalSortKey(a.naturalSortKey, b.naturalSortKey) }
-                adapter.items = filteredList
-                adapter.notifyDataSetChanged()
+                }
+                adapter.updateRoutes(filteredList)
             }
         })
         dialog.setContentView(sheetView)
+        // Fix: Ensure bottom sheet resizes with keyboard
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        // Allow dismiss on outside touch
+        dialog.setCanceledOnTouchOutside(true)
         dialog.show()
     }
 
