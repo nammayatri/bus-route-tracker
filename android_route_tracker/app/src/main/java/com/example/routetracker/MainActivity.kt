@@ -353,9 +353,10 @@ class MainActivity : AppCompatActivity() {
                 visibility = View.GONE
             }
             // Add to the sheetView's root LinearLayout
-            (sheetView as LinearLayout).addView(noResultsText)
-            sheetView.addView(manualEntryEdit)
-            sheetView.addView(manualEntryButton)
+            val sheetLinearLayout = (sheetView as ScrollView).getChildAt(0) as LinearLayout
+            sheetLinearLayout.addView(noResultsText)
+            sheetLinearLayout.addView(manualEntryEdit)
+            sheetLinearLayout.addView(manualEntryButton)
 
             // Prepare stop items for display
             val stopItemsForPicker = stopItems

@@ -32,12 +32,12 @@
         app:strokeWidth="2dp"
         app:cornerRadius="24dp" />
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/submitButton"
         android:layout_width="match_parent"
         android:layout_height="216dp"
         android:text="Mark Stop"
-        android:textSize="32sp"
+        android:textSize="42sp"
         android:textStyle="bold"
         android:padding="32dp"
         android:backgroundTint="@color/submit_button_bg"
@@ -47,6 +47,6 @@
         android:elevation="6dp"
         android:fontFamily="sans-serif-medium"
         android:gravity="center"
-        android:background="@drawable/rounded_button_main_submit" />
+        app:cornerRadius="16dp" />
 
 </LinearLayout> 
