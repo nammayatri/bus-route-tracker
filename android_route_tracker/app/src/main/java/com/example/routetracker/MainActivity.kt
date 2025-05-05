@@ -672,7 +672,14 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 1001) {
             if (grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-                // Permission granted, proceed with location features
+                // Permission granted, start location updates and service
+                startLocationUpdates()
+                val serviceIntent = Intent(this, LocationService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(serviceIntent)
+                } else {
+                    startService(serviceIntent)
+                }
             } else {
                 // Permission denied, show dialog to open settings
                 showPermissionSettingsDialog()
