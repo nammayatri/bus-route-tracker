@@ -568,15 +568,23 @@ class MainActivity : AppCompatActivity() {
             recyclerView.visibility = View.VISIBLE
         }
 
-        fun computeSortKey(routeNumber: String?, routeCode: String): Triple<Int, Int, String> {
+        fun compareNaturalSortKey(a: List<Comparable<*>>, b: List<Comparable<*>>): Int {
+            for (i in a.indices) {
+                val cmp = compareValues(a[i], b[i])
+                if (cmp != 0) return cmp
+            }
+            return 0
+        }
+
+        fun computeNaturalSortKey(routeNumber: String?, routeCode: String, routeStart: String, routeEnd: String): List<Comparable<*>> {
             val str = routeNumber?.takeIf { it.isNotBlank() } ?: routeCode
             val regex = Regex("^(\\d+)([a-zA-Z]*)$")
             val match = regex.matchEntire(str.trim())
             return if (match != null) {
                 val (num, suf) = match.destructured
-                Triple(0, num.toIntOrNull() ?: -1, suf.lowercase())
+                listOf(num.toIntOrNull() ?: Int.MAX_VALUE, suf.lowercase(), routeStart, routeEnd)
             } else {
-                Triple(1, -1, str.lowercase())
+                listOf(Int.MAX_VALUE, str.lowercase(), routeStart, routeEnd)
             }
         }
 
@@ -585,45 +593,10 @@ class MainActivity : AppCompatActivity() {
             val routeStart: String,
             val routeEnd: String,
             val routeNumber: String? = null,
-            val sortKey: Triple<Int, Int, String>
+            val naturalSortKey: List<Comparable<*>>
         )
 
-        val sortedRoutes = routes.sortedWith(compareBy(
-            { 
-                val str = it.optString("route_number", null)?.takeIf { s -> !s.isNullOrBlank() } ?: it.optString("route_code", "")
-                val regex = Regex("^(\\d+)([a-zA-Z]*)$")
-                val match = regex.matchEntire(str.trim())
-                if (match != null) {
-                    val (num, suf) = match.destructured
-                    0
-                } else {
-                    1
-                }
-            },
-            { 
-                val str = it.optString("route_number", null)?.takeIf { s -> !s.isNullOrBlank() } ?: it.optString("route_code", "")
-                val regex = Regex("^(\\d+)([a-zA-Z]*)$")
-                val match = regex.matchEntire(str.trim())
-                if (match != null) {
-                    val (num, suf) = match.destructured
-                    num.toIntOrNull() ?: -1
-                } else {
-                    -1
-                }
-            },
-            { 
-                val str = it.optString("route_number", null)?.takeIf { s -> !s.isNullOrBlank() } ?: it.optString("route_code", "")
-                val regex = Regex("^(\\d+)([a-zA-Z]*)$")
-                val match = regex.matchEntire(str.trim())
-                if (match != null) {
-                    val (num, suf) = match.destructured
-                    suf.lowercase()
-                } else {
-                    str.lowercase()
-                }
-            }
-        ))
-        val routeItems = sortedRoutes.map {
+        val routeItems = routes.map {
             val code = it.optString("route_code", "")
             val start = it.optString("route_start_point", "")
             val end = it.optString("route_end_point", "")
@@ -633,9 +606,9 @@ class MainActivity : AppCompatActivity() {
                 routeStart = start,
                 routeEnd = end,
                 routeNumber = number,
-                sortKey = computeSortKey(number, code)
+                naturalSortKey = computeNaturalSortKey(number, code, start, end)
             )
-        }
+        }.sortedWith { a, b -> compareNaturalSortKey(a.naturalSortKey, b.naturalSortKey) }
         var filtered = routeItems
         val adapter = object : RecyclerView.Adapter<RouteViewHolder>() {
             var items = filtered
@@ -669,7 +642,7 @@ class MainActivity : AppCompatActivity() {
                     ((it.routeNumber ?: it.routeCode).contains(query, true) ||
                      it.routeStart.contains(query, true) ||
                      it.routeEnd.contains(query, true))
-                }.sortedWith(compareBy({ it.sortKey.first }, { it.sortKey.second }, { it.sortKey.third }))
+                }.sortedWith { a, b -> compareNaturalSortKey(a.naturalSortKey, b.naturalSortKey) }
                 adapter.items = filteredList
                 adapter.notifyDataSetChanged()
             }
