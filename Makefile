@@ -1,7 +1,7 @@
 # Variables for Docker image configuration
 IMAGE_NAME := bus-stop-locator
-PROD_REGISTRY := [REDACTED_PROD]
-SANDBOX_REGISTRY := [REDACTED_SANDBOX]
+PROD_REGISTRY := ${{ env.PROD_REGISTRY }}
+SANDBOX_REGISTRY := ${{ env.SANDBOX_REGISTRY }}
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
 TAG := $(GIT_COMMIT)
 
