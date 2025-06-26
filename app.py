@@ -251,7 +251,7 @@ def fetch_routes_from_api():
     url = f'{API_BASE_URL}/datatool/api/route/list?city={API_CITY}&vehicle_type={API_VEHICLE_TYPE}'
     headers = {'X-Api-Token': API_TOKEN}
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, verify=False)
         response.raise_for_status()
         return response.json()['routes']
     except Exception as e:
@@ -263,7 +263,7 @@ def fetch_stops_from_api(route_id):
     url = f'{API_BASE_URL}/datatool/api/route/{route_id}?city={API_CITY}&vehicle_type={API_VEHICLE_TYPE}'
     headers = {'Authorization': f'Bearer {API_TOKEN}'}
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, verify=False)
         response.raise_for_status()
         return response.json()['features']
     except Exception as e:
@@ -272,7 +272,7 @@ def fetch_stops_from_api(route_id):
 
 def get_cached_routes():
     now = time.time()
-    if (route_cache['routes'] is None or
+    if (route_cache['routes'] is None or len(route_cache['routes']) == 0 or
         now - route_cache['routes_timestamp'] > CACHE_HOURS * 3600):
         # Fetch and cache
         raw_routes = fetch_routes_from_api()
@@ -333,4 +333,4 @@ def get_configs(city, vehicle_type):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8002)
+    app.run(debug=True, host='0.0.0.0', port=8000)
