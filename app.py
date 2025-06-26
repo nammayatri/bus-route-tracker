@@ -251,7 +251,7 @@ def fetch_routes_from_api():
     url = f'{API_BASE_URL}/datatool/api/route/list?city={API_CITY}&vehicle_type={API_VEHICLE_TYPE}'
     headers = {'X-Api-Token': API_TOKEN}
     try:
-        response = requests.get(url, headers=headers, timeout=5)
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
         return response.json()['routes']
     except Exception as e:
@@ -276,6 +276,7 @@ def get_cached_routes():
         now - route_cache['routes_timestamp'] > CACHE_HOURS * 3600):
         # Fetch and cache
         raw_routes = fetch_routes_from_api()
+        print(f"Raw routes: {raw_routes}")
         # Transform to expected structure
         route_cache['routes'] = [
             {
@@ -321,4 +322,4 @@ def get_configs(city, vehicle_type):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8000)
+    app.run(debug=True, host='0.0.0.0', port=8002)
