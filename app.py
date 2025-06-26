@@ -263,7 +263,7 @@ def fetch_stops_from_api(route_id):
     url = f'{API_BASE_URL}/datatool/api/route/{route_id}?city={API_CITY}&vehicle_type={API_VEHICLE_TYPE}'
     headers = {'Authorization': f'Bearer {API_TOKEN}'}
     try:
-        response = requests.get(url, headers=headers, timeout=5)
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
         return response.json()['features']
     except Exception as e:
@@ -278,7 +278,7 @@ def get_cached_routes():
         raw_routes = fetch_routes_from_api()
         print(f"Raw routes: {raw_routes}")
         # Transform to expected structure
-        route_cache['routes'] = [
+        transformed_routes = [
             {
                 'route_code': r['routeCode'],
                 'route_name': r['routeName'],
@@ -288,7 +288,13 @@ def get_cached_routes():
             }
             for r in raw_routes
         ]
-        route_cache['routes_timestamp'] = now
+        # Only cache if we got non-empty results
+        if len(transformed_routes) > 0:
+            route_cache['routes'] = transformed_routes
+            route_cache['routes_timestamp'] = now
+        else:
+            print("Not caching empty routes response")
+            return transformed_routes  # Return empty list without caching
     return route_cache['routes']
 
 def get_cached_stops(route_id):
@@ -310,10 +316,15 @@ def get_cached_stops(route_id):
                     'lat': coords[1],
                     'lon': coords[0]
                 })
-        route_cache['stops'][route_id] = {
-            'data': stops_data,
-            'timestamp': now
-        }
+        # Only cache if we got non-empty results
+        if stops_data:
+            route_cache['stops'][route_id] = {
+                'data': stops_data,
+                'timestamp': now
+            }
+        else:
+            print(f"Not caching empty stops response for route {route_id}")
+            return stops_data  # Return empty list without caching
     return route_cache['stops'][route_id]['data']
 
 @app.route('/routeTrackerApi/configs/<city>/<vehicle_type>')
